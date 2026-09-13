@@ -1,0 +1,16 @@
+{"event_id":"E000181","occurred_at":"2026-09-12T09:58:10Z","event_type":"product_viewed","session_id":"S0184","client_id":"C042","product_id":"P101","channel":"mobile","payload":{}}
+{"event_id":"E000182","occurred_at":"2026-09-12T10:00:42Z","event_type":"product_viewed","session_id":"S0184","client_id":"C042","product_id":"P103","channel":"mobile","payload":{}}
+{"event_id":"E000183","occurred_at":"2026-09-12T10:02:15Z","event_type":"cart_item_added","session_id":"S0184","client_id":"C042","product_id":"P103","channel":"mobile","payload":{"quantity":1}}
+{"event_id":"E000184","occurred_at":"2026-09-12T10:03:21Z","event_type":"cart_abandoned","session_id":"S0184","client_id":"C042","product_id":"P103","channel":"mobile","payload":{}}
+{"event_id":"E000185","occurred_at":"2026-09-12T10:08:47Z","event_type":"product_viewed","session_id":"S0185","client_id":"C117","product_id":"P101","channel":"web","payload":{}}
+{"event_id":"E000186","occurred_at":"2026-09-12T10:12:03Z","event_type":"cart_item_added","session_id":"S0185","client_id":"C117","product_id":"P101","channel":"web","payload":{"quantity":1}}
+{"event_id":"E000187","occurred_at":"2026-09-12T10:15:29Z","event_type":"checkout_started","session_id":"S0185","client_id":"C117","product_id":"P101","channel":"web","payload":{"phone":"06 00 00 00 01"}}
+{"event_id":"E000188","occurred_at":"2026-09-12T10:17:11Z","event_type":"purchase_completed","session_id":"S0185","client_id":"C117","product_id":"P101","channel":"web","payload":{"quantity":1}}
+{"event_id":"E000189","occurred_at":"2026-09-12T10:21:34Z","event_type":"product_viewed","session_id":"S0186","client_id":"C205","product_id":"P105","channel":"tablet","payload":{}}
+{"event_id":"E000190","occurred_at":"2026-09-12T10:23:18Z","event_type":"cart_item_added","session_id":"S0186","client_id":"C205","product_id":"P105","channel":"tablet","payload":{"quantity":1}}
+{"event_id":"E000191","occurred_at":"2026-09-12T10:26:44Z","event_type":"checkout_started","session_id":"S0186","client_id":"C205","product_id":"P105","channel":"tablet","payload":{"phone":"+33 6 00 00 00 02"}}
+{"event_id":"E000192","occurred_at":"2026-09-12T10:31:02Z","event_type":"purchase_completed","session_id":"S0186","client_id":"C205","product_id":"P105","channel":"tablet","payload":{"quantity":1}}
+{"event_id":"E000193","occurred_at":"2026-09-12T10:33:27Z","event_type":"product_viewed","session_id":"S0187","client_id":"C301","product_id":"P107","channel":"web","payload":{}}
+{"event_id":"E000194","occurred_at":"2026-09-12T10:35:50Z","event_type":"cart_item_added","session_id":"S0187","client_id":"C301","product_id":"P107","channel":"web","payload":{"quantity":2}}
+{"event_id":"E000195","occurred_at":"2026-09-12T10:38:41Z","event_type":"checkout_started","session_id":"S0187","client_id":"C301","product_id":"P107","channel":"web","payload":{"phone":"invalide"}}
+{"event_id":"E000196","occurred_at":"2026-09-12T10:44:09Z","event_type":"cart_abandoned","session_id":"S0187","client_id":"C301","product_id":"P107","channel":"web","payload":{}}
