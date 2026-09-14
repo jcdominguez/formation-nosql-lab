@@ -1,0 +1,6 @@
+203.0.113.42 - - [12/Sep/2026:09:58:10 +0000] "GET /produits/P101 HTTP/1.1" 200 18342 "https://www.example.com/" "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1"
+203.0.113.42 - - [12/Sep/2026:10:00:42 +0000] "GET /produits/P103 HTTP/1.1" 200 17120 "https://www.example.com/produits/P101" "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1"
+198.51.100.7 - - [12/Sep/2026:10:08:47 +0000] "GET /produits/P101 HTTP/1.1" 200 18342 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0 Safari/537.36"
+198.51.100.7 - - [12/Sep/2026:10:12:03 +0000] "POST /panier HTTP/1.1" 201 312 "https://www.example.com/produits/P101" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0 Safari/537.36"
+198.51.100.7 - - [12/Sep/2026:10:15:29 +0000] "POST /commande HTTP/1.1" 500 87 "https://www.example.com/panier" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0.0.0 Safari/537.36"
+192.0.2.250 - - [12/Sep/2026:10:15:31 +0000] "GET /robots.txt HTTP/1.1" 404 209 "-" "curl/8.4.0"

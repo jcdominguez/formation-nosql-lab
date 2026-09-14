@@ -56,11 +56,13 @@ Ajouter le champ `campaign: "decouverte"` à tous les produits de catégorie `ca
 
 Contrôler le nombre de documents trouvés et modifiés, puis relire les cafés.
 
-### 6. Retirer un ancien champ
+### 6. Retirer un ancien champ (optionnel)
 
 Retirer `legacy_label` du produit `P102` avec `updateOne()` et `$unset`.
 
 Relire le produit en projetant `product_id`, `name` et `legacy_label` pour vérifier que le champ a disparu.
+
+Item optionnel : les items 4 et 5 couvrent déjà `updateOne()`, `updateMany()`, `$set` et `$inc`.
 
 ## Questions de débrief
 

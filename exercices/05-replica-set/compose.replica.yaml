@@ -1,0 +1,17 @@
+# Replica set MongoDB à trois nœuds, pour la démonstration de réplication et d'élection.
+# Indépendant du lab principal : lancer depuis ce dossier, ne partage ni port ni volume avec compose.yaml.
+#   docker compose -f compose.replica.yaml up -d
+#   docker compose -f compose.replica.yaml exec rs1 mongosh --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"rs1:27017"},{_id:1,host:"rs2:27017"},{_id:2,host:"rs3:27017"}]})'
+services:
+  rs1: &node
+    image: mongodb/mongodb-community-server:7.0.40-ubuntu2204
+    entrypoint:
+      - mongod
+    command:
+      - --bind_ip_all
+      - --replSet
+      - rs0
+  rs2:
+    <<: *node
+  rs3:
+    <<: *node

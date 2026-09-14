@@ -103,6 +103,23 @@ docker compose exec -T mongodb mongosh --quiet mongodb://localhost:27017 --file 
 
 La solution supprime l'index de l'exercice à la fin afin de laisser le lab dans son état initial.
 
+### 04 - Import d'un export SGBDR
+
+- Énoncé et corrigé : Guide participant, section « Importation de données des SGBDR au format JSON »
+- Fichiers : `data/export-sgbdr/`, procédure dans `exercices/04-import-json/README.md`
+
+### 05 - Replica set
+
+- Énoncé et corrigé : Guide participant, section « Répliquer les données »
+- Procédure : `exercices/05-replica-set/README.md`, fichier `compose.replica.yaml` indépendant du lab principal
+
+## Autres fichiers ajoutés pour le Guide
+
+- `data/formats/` : quatre échantillons (log web, IoT, HTML, CSV) pour l'atelier « quatre formats face au relationnel »
+- `data/messages-applicatifs.jsonl` : messages de plusieurs applications, atelier « intégration de données au format JSON »
+- `demos/cassandra-format.cql` : format Cassandra du fil rouge, à lire (aucun conteneur Cassandra dans le lab)
+- service `redis`, profil Compose `familles` : `docker compose --profile familles up -d --wait redis`
+
 ## Arrêt et remise à zéro
 
 Arrêter le serveur en conservant les données :

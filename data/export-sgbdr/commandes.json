@@ -1,0 +1,4 @@
+[
+  {"order_id":"O5001","ordered_at":"2026-09-12T10:17:11","statut":"payee","client":{"client_id":"C117","email":"c117@example.com","ville":"Lyon"},"lignes":[{"product_id":"P101","name":"Horizon X100","qty":1,"unit_price":749.00}]},
+  {"order_id":"O5002","ordered_at":"2026-09-12T10:31:02","statut":"payee","client":{"client_id":"C205","email":"c205@example.com","ville":"Nantes"},"lignes":[{"product_id":"P105","name":"Transit 24","qty":1,"unit_price":89.00},{"product_id":"P108","name":"Altitude Brésil","qty":2,"unit_price":10.90}]}
+]

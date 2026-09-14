@@ -1,0 +1,9 @@
+timestamp,session_id,client_id,event_type,product_id,channel,extra
+2026-09-12T09:58:10Z,S0184,C042,product_viewed,P101,mobile,
+2026-09-12T10:00:42Z,S0184,C042,product_viewed,P103,mobile,
+2026-09-12T10:02:15Z,S0184,C042,cart_item_added,P103,mobile,"quantity=1"
+2026-09-12T10:03:21Z,S0184,C042,cart_abandoned,P103,mobile,
+2026-09-12T10:08:47Z,S0185,C117,product_viewed,P101,web,
+2026-09-12T10:12:03Z,S0185,C117,cart_item_added,P101,web,"quantity=1"
+2026-09-12T10:15:29Z,S0185,C117,checkout_started,P101,web,"phone=06 00 00 00 01"
+2026-09-12T10:17:11Z,S0185,C117,purchase_completed,P101,web,"quantity=1;coupon=BIENVENUE10"

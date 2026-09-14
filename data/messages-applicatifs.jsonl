@@ -1,0 +1,7 @@
+{"source":"paiement","received_at":"2026-09-12T10:17:12Z","level":"info","order_id":"O5001","message":"Paiement accepté","amount":749.0,"provider":"stripe"}
+{"source":"stock","received_at":"2026-09-12T10:17:13Z","level":"info","product_id":"P101","message":"Décrément stock","delta":-1,"remaining":4}
+{"source":"expedition","received_at":"2026-09-12T14:02:40Z","level":"info","order_id":"O5001","message":"Colis remis au transporteur","carrier":"colissimo","tracking":"6A12345678901"}
+{"source":"paiement","received_at":"2026-09-12T10:31:03Z","level":"info","order_id":"O5002","message":"Paiement accepté","amount":110.8,"provider":"paypal"}
+{"source":"stock","received_at":"2026-09-12T10:31:04Z","level":"warn","product_id":"P108","message":"Stock sous le seuil","delta":-2,"remaining":1,"threshold":2}
+{"source":"web","received_at":"2026-09-12T10:15:29Z","level":"error","session_id":"S0185","message":"Timeout service commande","status":500,"path":"/commande","duration_ms":30012}
+{"source":"web","received_at":"2026-09-12T10:15:31Z","level":"warn","message":"Robot inconnu","status":404,"path":"/robots.txt","user_agent":"curl/8.4.0"}

@@ -22,6 +22,21 @@ services:
       - mongodb-data:/data/db
       - .:/lab:ro
 
+  redis:
+    profiles:
+      - familles
+    image: redis:7.4-alpine
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      interval: 2s
+      timeout: 3s
+      retries: 10
+    ports:
+      - "127.0.0.1:6379:6379"
+
   hbase:
     profiles:
       - bigdata
