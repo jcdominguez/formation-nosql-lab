@@ -1,19 +1,25 @@
 > [!NOTE]
-> **Guide participant - Formation NoSQL**
-> Guide à suivre pendant la séance ou à rejouer seul ensuite. Il reprend le programme dans l'ordre, une section par notion, avec les manipulations, les pièges et les corrigés regroupés en fin de document.
->
-> - [MongoDB, documentation officielle](https://www.mongodb.com/docs/manual/)
-> - [Dépôt du lab](https://github.com/jcdominguez/formation-nosql-lab)
+> **Guide participant**
+> Guide à suivre pendant la séance ou à rejouer seul ensuite. Il présente les mécanismes dans l'ordre de la formation, porte les manipulations et regroupe les corrigés en fin de document.
 
 > [!TIP]
 > **Navigation**
 > - [Préparation](#préparation)
-> - [Jour 1 · Des SGBD relationnels au NoSQL](#jour-1--des-sgbd-relationnels-au-nosql)
-> - [Jour 1 · Différentes familles NoSQL](#jour-1--différentes-familles-nosql)
-> - [Jour 1 · Comment choisir une base NoSQL ?](#jour-1--comment-choisir-une-base-nosql-)
-> - [Jour 2 · NoSQL et Big Data](#jour-2--nosql-et-big-data)
-> - [Jour 2 · Dialogue avec une base NoSQL (MongoDB)](#jour-2--dialogue-avec-une-base-nosql-mongodb)
+> - [Parcours pratique](#parcours-pratique)
+> - [Du relationnel au NoSQL](#du-relationnel-au-nosql)
+> - [Familles NoSQL et intégrité](#familles-nosql-et-intégrité)
+> - [Modéliser et interroger avec MongoDB](#modéliser-et-interroger-avec-mongodb)
+> - [Distribuer et exploiter MongoDB](#distribuer-et-exploiter-mongodb)
+> - [Big Data et services managés](#big-data-et-services-managés)
+> - [Migration](#migration)
 > - [Checklist finale](#checklist-finale)
+> - [Approfondissements](#approfondissements)
+
+[Documentation officielle MongoDB](https://www.mongodb.com/docs/manual/) · [Dépôt du lab](https://github.com/jcdominguez/formation-nosql-lab)
+
+> [!IMPORTANT]
+> **Rester dans le parcours indiqué par le formateur**
+> Le Guide contient aussi des explications et des prolongements pour rejouer ou approfondir la formation après la séance. Pendant les ateliers, ouvrir uniquement la section annoncée par le formateur et suivre ses étapes dans l'ordre.
 
 Les repères utilisés tout au long du Guide : **À observer** invite à prédire un résultat avant de lancer la commande ; **À essayer** est une manipulation à faire ; **Piège** signale ce qui fait perdre du temps ; **Ce qu'il faut retenir** ferme chaque notion. Les corrigés des ateliers sont regroupés à la fin : tenter d'abord, consulter ensuite.
 
@@ -28,6 +34,41 @@ Un poste avec **Docker** en état de marche, un terminal, et un éditeur de text
 | Windows 11 | Docker Desktop avec le moteur WSL 2, et une distribution Linux (Ubuntu) pour ouvrir le terminal. Les commandes du Guide se lancent **dans ce terminal WSL**, pas dans PowerShell. |
 | macOS | Docker Desktop (édition Intel ou Apple Silicon selon le processeur). Les commandes se lancent dans Terminal. |
 | Linux | Docker Engine et le plugin Compose, le compte utilisateur ajouté au groupe `docker`. |
+
+> [!TIP]
+> **Options d’affichage dans le terminal**
+>
+> Le Guide utilise `cat`, car cette commande est disponible dans les terminaux macOS, Linux et WSL. Les commandes ci-dessous sont **facultatives** : si elles sont déjà disponibles sur votre poste, vous pouvez les utiliser **à la place de `cat`** pour faciliter la lecture.
+>
+> N’installez rien pour suivre la formation et n’exécutez pas toutes les commandes : choisissez seulement celle qui vous est utile.
+>
+> **JSON ou JSONL : indenter et colorer avec `jq`**
+>
+> ```bash
+> jq . data/formats/02-capteur-iot.jsonl
+> ```
+>
+> **CSV : aligner les champs avec `column`**
+>
+> ```bash
+> column -s, -t < data/formats/04-clics.csv
+> ```
+>
+> **Fichier texte long : parcourir page par page avec `less`**
+>
+> ```bash
+> less data/formats/01-serveur-web.log
+> ```
+>
+> Utilisez les flèches pour vous déplacer et appuyez sur `q` pour quitter.
+>
+> **Aperçu d’un fichier : afficher seulement les premières lignes avec `head`**
+>
+> ```bash
+> head -n 5 data/evenements.jsonl
+> ```
+>
+> `head` n’affiche qu’un extrait : ne l’utilisez pas lorsqu’un exercice demande d’examiner ou de compter toutes les lignes.
 
 Vérifier que Docker répond :
 
@@ -63,7 +104,7 @@ cd formation-nosql-lab
 
 Ce que contient le dépôt :
 
-```
+```text
 formation-nosql-lab/
 ├── compose.yaml        # décrit les conteneurs : MongoDB, et HBase/Spark pour les démos
 ├── data/               # catalogue de produits, événements de navigation, formats bruts
@@ -78,6 +119,10 @@ Ce qui **n'existe pas** dans le dépôt, pour ne pas le chercher : aucune applic
 ## Le fil rouge : une boutique en ligne
 
 Toutes les manipulations portent sur les données d'une même boutique. Il n'y a rien à mémoriser, seulement à reconnaître :
+
+> [!NOTE]
+> **Format JSONL**
+> JSONL signifie *JSON Lines* : chaque ligne du fichier contient un document JSON complet et indépendant. Contrairement à un fichier JSON classique, les documents ne sont pas regroupés dans un tableau englobant. Ce format permet de lire ou d'importer les données progressivement, une ligne après l'autre.
 
 | Donnée | Ce que c'est | Fichier |
 |---|---|---|
@@ -131,7 +176,7 @@ docker compose ps
 
 Résultat attendu : le service `mongodb` en état `Up … (healthy)`. Tant que `healthy` n'apparaît pas, la base n'accepte pas encore de connexion.
 
-```
+```text
 NAME                            STATUS
 formation-nosql-lab-mongodb-1   Up 6 seconds (healthy)
 ```
@@ -144,7 +189,7 @@ sh scripts/load-data.sh
 
 Le script recrée les deux collections à partir des fichiers de `data/` et affiche, en dernière ligne, le compte des documents :
 
-```
+```text
 {"produits":8,"evenements":16}
 ```
 
@@ -174,6 +219,16 @@ show collections
 ```
 db.produits.findOne({ product_id: "P101" }, { _id: 0 })
 ```
+
+> [!NOTE]
+> **Lire les deux paramètres de `findOne`**
+> La commande suit la forme `findOne(filtre, projection)`. Le premier objet, `{ product_id: "P101" }`, est le **filtre** : il indique quel document rechercher. Le second, `{ _id: 0 }`, est la **projection** : il indique quels champs afficher ou masquer dans le résultat.
+>
+> MongoDB ajoute automatiquement un champ `_id` à chaque document qui n'en possède pas. Cet identifiant est unique dans la collection. Dans une projection, `0` signifie « exclure ce champ du résultat » et `1` signifie « inclure ce champ dans le résultat ».
+>
+> Une projection par exclusion, comme `{ _id: 0 }`, conserve tous les autres champs. Une projection par inclusion, comme `{ name: 1, price: 1 }`, ne conserve que les champs demandés, ainsi que `_id` par défaut. Pour masquer aussi cet identifiant : `{ name: 1, price: 1, _id: 0 }`.
+>
+> Il ne faut généralement pas mélanger inclusion et exclusion dans une même projection : `{ name: 1, price: 0 }` est invalide. `_id` est l'exception, il peut être exclu avec `0` dans une projection par inclusion. La projection ne modifie jamais le document stocké, elle change seulement ce que la requête retourne.
 
 La dernière affiche le produit P101 sous la forme vue plus haut. Pour quitter le shell : `exit` ou Ctrl+D. Le conteneur continue de tourner.
 
@@ -206,48 +261,54 @@ docker compose down --volumes
 | `load-data.sh` ne trouve pas les fichiers | Lancé depuis un autre dossier, ou fins de ligne Windows | Se placer à la racine du dépôt ; si le ZIP a été décompressé par un outil qui convertit en CRLF, relancer avec `sh scripts/load-data.sh` depuis WSL |
 | `mongosh` refuse la connexion | Base pas encore `healthy` | Attendre `docker compose ps` en `healthy`, puis réessayer |
 
-# Jour 1 · Des SGBD relationnels au NoSQL
+# Parcours pratique
+
+<!-- parcours-pratique:auto -->
+
+Cette page permet d'enchaîner directement les manipulations sans rechercher leurs énoncés dans les chapitres. La [Préparation](#préparation) reste nécessaire avant de commencer. Les corrigés sont regroupés [à la fin du Guide](#corrigés).
+
+## Exercices du parcours principal
+
+1. [Atelier 0 : quatre formats de données face au relationnel](#atelier-0-quatre-formats-de-données-face-au-relationnel)
+2. [Atelier 1 : premiers pas avec le shell de MongoDB](#atelier-1-premiers-pas-avec-le-shell-de-mongodb)
+3. [Atelier 2 : création de bases et de collections](#atelier-2-création-de-bases-et-de-collections)
+4. [Atelier 3 : intégration de données au format JSON](#atelier-3-intégration-de-données-au-format-json)
+5. [Atelier 4 : requêtage sur ces données](#atelier-4-requêtage-sur-ces-données)
+6. [Atelier 5 : mise en place d'index et observation des requêtes](#atelier-5-mise-en-place-dindex-et-observation-des-requêtes)
+
+## Démonstrations du formateur
+
+- [Manipuler des données avec HBase](#démonstration-manipuler-des-données-avec-hbase)
+- [Nettoyer un gros volume selon un motif imposé](#démonstration-nettoyer-un-gros-volume-selon-un-motif-imposé)
+- [Traiter un gros volume avec Spark au-dessus d'une base NoSQL](#démonstration-traiter-un-gros-volume-avec-spark-au-dessus-dune-base-nosql)
+- [Visiter l'offre NoSQL d'un acteur majeur](#démonstration-visite-guidée-de-loffre-nosql-dun-acteur-majeur)
+
+## Exercices facultatifs
+
+- [Observer le format des données sur Cassandra, Redis et MongoDB](#atelier-observer-le-format-des-données-sur-cassandra-redis-et-mongodb)
+- [Construire la matrice de synthèse](#atelier-construire-la-matrice-de-synthèse)
+
+## Corrigés
+
+[Accéder aux corrigés des exercices](#corrigés-2). Tenter chaque exercice avant d'ouvrir cette section.
+
+# Du relationnel au NoSQL
 
 Cette première section pose le vocabulaire commun. Elle part de ce que tout le monde connaît, une base relationnelle, pour montrer sur des données réelles à quel moment ce modèle se met à coûter cher, et ce que NoSQL propose à la place. Rien n'y est encore manipulé dans MongoDB : l'atelier de fin de section se fait avec les fichiers du dossier `data/formats/`.
 
 ## Rappels sur la philosophie des SGBDR
 
-Une base relationnelle repose sur quatre idées, et tout le reste en découle.
+Une base relationnelle organise les données en tables reliées entre elles. Les colonnes possèdent des types ; les contraintes peuvent contrôler les identifiants, les références, l’unicité et les valeurs obligatoires. Le schéma peut évoluer.
 
-**Le schéma d'abord.** Avant d'écrire la première ligne, on déclare les tables, leurs colonnes, leurs types. Une donnée qui ne rentre pas dans le schéma est refusée. La structure est décidée une fois, à la conception, et toute donnée s'y conforme.
+La normalisation répartit les informations pour limiter les duplications. Les jointures permettent de recomposer les résultats. Leur coût dépend des données, des index, des requêtes et du moteur ; leur présence n’est pas en soi un défaut.
 
-**La normalisation.** Une information n'est stockée qu'à un seul endroit. Le nom d'un client vit dans la table `clients`, jamais recopié dans `commandes` : on y met seulement sa clé. Résultat : pas de doublon, pas d'incohérence entre deux copies, mais des **jointures** à chaque lecture pour réassembler ce qui a été séparé.
+Les transactions ACID permettent de grouper des modifications avec des garanties d’atomicité, de cohérence, d’isolation et de durabilité. Les garanties précises dépendent notamment du niveau d’isolation et de la configuration.
 
-**Les contraintes portées par la base.** Clé primaire, clé étrangère, unicité, `NOT NULL` : c'est la base elle-même qui garantit qu'une commande ne référence pas un client inexistant. L'application peut être fausse, la donnée reste cohérente.
+Pour le catalogue, plusieurs modèles sont possibles : colonnes communes et tables par catégorie, table d’attributs, ou colonnes communes accompagnées d’un document JSON pour les attributs variables. Une table clé-valeur dont toutes les valeurs sont du texte est un choix particulier, pas une obligation du relationnel.
 
-**Les transactions ACID.** Un virement bancaire débite un compte et en crédite un autre : soit les deux écritures sont faites, soit aucune (Atomicité) ; la base passe d'un état valide à un état valide (Cohérence) ; deux virements simultanés ne se voient pas à moitié faits (Isolation) ; une fois confirmé, le virement survit à une coupure de courant (Durabilité).
+PostgreSQL propose les types `json` et `jsonb`, des opérations sur leurs champs et des index sur `jsonb`. Une nouvelle propriété JSON n’impose donc pas une nouvelle colonne. [Documentation PostgreSQL : types JSON](https://www.postgresql.org/docs/current/datatype-json.html).
 
-Sur le fil rouge, le catalogue de la boutique en relationnel donnerait :
-
-```sql
-CREATE TABLE produits (
-  product_id  VARCHAR(10) PRIMARY KEY,
-  category_id INT NOT NULL REFERENCES categories(id),
-  name        VARCHAR(100) NOT NULL,
-  active      BOOLEAN NOT NULL,
-  price       DECIMAL(10,2) NOT NULL
-);
-
-CREATE TABLE attributs_produit (
-  product_id VARCHAR(10) REFERENCES produits(product_id),
-  cle        VARCHAR(50),
-  valeur     VARCHAR(200),
-  PRIMARY KEY (product_id, cle)
-);
-```
-
-La seconde table est le premier signal : les attributs varient selon la catégorie (un capteur pour un appareil photo, une capacité en litres pour un sac), donc on ne peut pas leur donner de colonnes fixes. On les range en lignes `clé / valeur`, on perd leur type (tout devient `VARCHAR`), et lire un produit demande une jointure.
-
-> [!NOTE]
-> **Question : pourquoi ce modèle a-t-il dominé aussi longtemps ?**
-> Parce qu'il répond parfaitement au cas où il est né : des données de gestion (comptes, stocks, factures), bien structurées, de volume modéré, sur une seule machine, où une incohérence coûte de l'argent. Les garanties ACID et les contraintes valent leur prix tant que ce prix reste payable. Le NoSQL n'a pas remplacé ce cas ; il est apparu pour les cas où ce prix ne l'était plus.
-
-**Ce qu'il faut retenir.** Le relationnel choisit la cohérence et la structure fixe, et paie ce choix en jointures et en rigidité de schéma. Tant que les données sont régulières et tiennent sur une machine, c'est un excellent choix.
+**Ce qu’il faut retenir.** Comparer une organisation des données et un moteur précis. Une structure variable peut se représenter dans un SGBDR moderne.
 
 ## Données structurées et non structurées
 
@@ -259,7 +320,7 @@ Le mot « structuré » ne veut pas dire « organisé ». Il veut dire : **la st
 | Semi-structurée | Portée par la donnée elle-même (balises, clés), variable d'un enregistrement à l'autre | Un produit JSON avec ses `attributes` propres à sa catégorie, une ligne de log, un message IoT | Un parseur JSON ou XML, une base documentaire |
 | Non structurée | Aucune structure exploitable sans traitement | Le texte d'un avis client, la photo `P101-front.jpg`, une vidéo de démonstration | Un moteur de recherche, un traitement d'image, un modèle de langage |
 
-Le point qui compte : dans la seconde ligne, la structure existe, elle est même très précise (`temperature_c` est un nombre, `ts` une date). Mais elle **change d'un enregistrement à l'autre**. Un schéma relationnel doit prévoir la réunion de toutes les variantes, avec des colonnes vides partout où une variante n'a pas la valeur.
+Le point qui compte : dans la seconde ligne, la structure existe, elle est même très précise (`temperature_c` est un nombre, `ts` une date). Mais elle **change d'un enregistrement à l'autre**. Si l’on choisit une table unique avec une colonne par champ, il faut prévoir la réunion des variantes. Des tables par type ou une colonne JSON constituent d’autres choix.
 
 **À observer.** Ouvrir `data/formats/02-capteur-iot.jsonl` et compter, avant de lire la réponse, combien de colonnes il faudrait à une table unique pour accueillir les sept lignes sans rien perdre.
 
@@ -277,7 +338,7 @@ Trois sources se sont ajoutées aux données de gestion, et aucune n'a été pro
 
 **Les journaux de serveurs.** Chaque requête HTTP produit une ligne. Le format est fixe en apparence, mais l'agent utilisateur, le référent, le code de retour racontent des choses différentes selon la ligne, et le volume est celui du trafic : des millions de lignes par jour sur un site moyen. On ne les lit jamais une par une ; on les compte, on les filtre, on cherche une anomalie.
 
-```
+```text
 203.0.113.42 - - [12/Sep/2026:09:58:10 +0000] "GET /produits/P101 HTTP/1.1" 200 18342 "https://www.example.com/" "Mozilla/5.0 (iPhone; …)"
 ```
 
@@ -289,82 +350,62 @@ Trois sources se sont ajoutées aux données de gestion, et aucune n'a été pro
 
 **Les sites web et leurs parcours.** Une page produit est du HTML : un titre, un prix, des caractéristiques en liste, des avis en texte libre, une image. Et derrière la page, la trace du visiteur : ce qu'il a regardé, mis au panier, abandonné. Cette trace n'a pas de « ligne finale » : c'est une suite d'événements, dont l'intérêt est la séquence.
 
-Ces trois sources partagent trois propriétés qui les distinguent des données de gestion :
+Ces sources demandent de distinguer la préparation du format, la représentation des informations et les opérations à réaliser. Un journal peut avoir une structure stable ; un message isolé peut être essentiel au diagnostic. La validation avant écriture et les requêtes d’agrégation sont possibles en relationnel comme avec certains moteurs NoSQL.
 
-- **Elles arrivent en flux**, pas en saisie : on ne valide rien avant d'écrire, on écrit d'abord et on trie ensuite.
-- **Leur forme varie** d'un enregistrement à l'autre, et évolue dans le temps quand un capteur ou une page change.
-- **Leur valeur est dans la masse**, pas dans l'enregistrement unique : une ligne de log ne vaut rien, dix millions racontent le comportement du site.
-
-**Ce qu'il faut retenir.** Les nouvelles sources écrivent beaucoup, vite, sous une forme mouvante, et on les exploite en masse. C'est l'exact inverse des hypothèses du relationnel : peu d'écritures, validées, sous une forme fixe, lues ligne à ligne.
+**Ce qu’il faut retenir.** Le format ne suffit pas à déterminer le stockage. Il faut connaître les accès, les garanties et la charge réelle.
 
 ## Évolutions technologiques et avènement du NoSQL
 
-Deux façons de grossir quand une base ne suit plus.
+Une charge croissante peut conduire à augmenter la capacité d’une machine (*scale-up*) ou à répartir le travail sur plusieurs machines (*scale-out*). La charge comprend le volume conservé, le débit de lectures et d’écritures, les accès simultanés et les délais de réponse attendus.
 
-**Grossir vers le haut (scale-up)** : une machine plus grosse. Plus de mémoire, plus de disques, plus de cœurs. Simple, sans changer l'application. Mais le prix monte plus vite que la puissance, et il existe une plus grosse machine du catalogue au-delà de laquelle il n'y a rien.
+Répartir introduit des échanges réseau, un choix de distribution des données et des mécanismes de coordination. Le coût ne croît pas nécessairement de façon linéaire et la capacité n’est pas sans limite.
 
-**Grossir vers le large (scale-out)** : plus de machines ordinaires. Le coût est linéaire, il n'y a pas de plafond. Mais la donnée doit maintenant être **répartie** entre les machines, et c'est là que le relationnel souffre : une jointure entre deux tables qui vivent sur deux serveurs différents traverse le réseau, et une transaction ACID qui touche plusieurs serveurs doit les faire tous tomber d'accord avant de confirmer.
+Les travaux Bigtable et Dynamo illustrent des réponses historiques à des besoins de distribution et de disponibilité. Ils ne définissent pas toutes les bases NoSQL actuelles : [Bigtable, Google Research](https://research.google/pubs/bigtable-a-distributed-storage-system-for-structured-data/) et [Dynamo, Amazon Science](https://www.amazon.science/publications/dynamo-amazons-highly-available-key-value-store).
 
-La chronologie tient en quelques repères :
+Des moteurs SQL distribués existent également. Spanner répartit les données en conservant une cohérence forte : [architecture de Spanner](https://docs.cloud.google.com/spanner/docs/whitepapers/life-of-reads-and-writes).
 
-| Période | Ce qui se passe |
-|---|---|
-| Années 1970 à 2000 | Le relationnel s'impose : SQL, transactions, une base par application, une machine par base |
-| 2003 à 2006 | Google publie trois articles fondateurs : GFS (un système de fichiers réparti sur des milliers de machines), MapReduce (un traitement réparti), Bigtable (une base répartie en colonnes larges). Le problème n'est plus « comment faire une meilleure base » mais « comment tenir sur mille machines banales qui tombent en panne » |
-| 2007 | Amazon publie l'article Dynamo : une base clé-valeur qui reste disponible pendant les pannes, quitte à servir une donnée un peu ancienne |
-| 2008 à 2010 | Ces idées sont réimplémentées en logiciel libre : Hadoop (GFS + MapReduce), HBase (Bigtable), Cassandra (Bigtable + Dynamo), MongoDB, Redis, CouchDB. Le mot « NoSQL » désigne cette vague |
-| Depuis 2012 | Le terme est relu « Not Only SQL » : ces bases s'ajoutent au relationnel, elles ne le remplacent pas. Les services cloud (DynamoDB, Cosmos DB, Atlas) les vendent clé en main |
-
-Ce que ces bases abandonnent, et ce qu'elles obtiennent en échange :
-
-- elles **renoncent au schéma fixe** pour accepter des formes variables ;
-- elles **renoncent aux jointures** en stockant ensemble ce qui est lu ensemble (un produit et ses attributs dans un seul document) ;
-- elles **assouplissent les garanties transactionnelles** pour pouvoir écrire sur plusieurs machines sans les faire toutes attendre ;
-- et en échange elles **grossissent vers le large** et **survivent à la panne d'une machine** en gardant des copies.
-
-**Ce qu'il faut retenir.** Le NoSQL n'est pas né d'une critique du SQL, mais d'un changement d'échelle : quand la donnée ne tient plus sur une machine, les hypothèses du relationnel (jointures locales, transactions sur une seule base) deviennent le problème.
+**Ce qu’il faut retenir.** Le besoin de distribution invite à comparer des architectures ; il n’impose pas à lui seul SQL ou NoSQL.
 
 ## Champs d'application des bases NoSQL et des SGBDR
 
-Le bon réflexe n'est pas « quelle base est la meilleure » mais « quelle base pour quel accès ». Pour chaque besoin, la question à poser est : comment la donnée est-elle **lue**, **écrite**, et quelle **incohérence** est tolérable.
+La forme des données, les opérations à effectuer, les garanties attendues et la charge orientent ensemble le choix d’une base. Aucun de ces critères, pris isolément, n’impose SQL ou NoSQL.
 
-| Besoin | Relationnel | NoSQL | Pourquoi |
-|---|---|---|---|
-| Comptabilité, facturation, stock | ✅ | 🚫 | Chaque écriture doit être exacte et cohérente avec les autres ; le volume est modeste |
-| Catalogue produit à attributs variables | ☑️ | ✅ | Le schéma fixe force une table clé/valeur ; un document porte ses attributs naturellement |
-| Sessions et paniers d'un site à fort trafic | 🚫 | ✅ | Des millions d'écritures courtes, à durée de vie limitée, sans jointure : un magasin clé-valeur en mémoire |
-| Journaux, télémétrie, événements de navigation | 🚫 | ✅ | Écriture en flux, forme variable, exploitation en masse |
-| Rapport de gestion croisant clients, commandes et produits | ✅ | ☑️ | Les jointures et les agrégations SQL sont faites pour cela ; en NoSQL il faut avoir prévu le croisement au stockage |
-| Réseau de relations (qui connaît qui, quel produit va avec quel produit) | 🚫 | ✅ | Parcourir des liens de proche en proche coûte une jointure par saut en SQL ; une base graphe suit les liens directement |
+| Besoin | Options à comparer | Critères |
+|---|---|---|
+| Commandes, paiements, stock | SGBDR ; moteur documentaire avec transactions adaptées | Contraintes, atomicité, isolation et exploitation |
+| Catalogue à attributs variables | Tables spécialisées, JSON dans PostgreSQL, documents MongoDB | Recherches, évolution et mises à jour |
+| Sessions et paniers | Relationnel, clé-valeur ou documents | Accès par session, expiration, durabilité et débit |
+| Journaux et événements | Tables, documents, colonnes larges ou fichiers avec moteur analytique | Ingestion, rétention et requêtes |
+| Rapports croisés | Relationnel ou moteur analytique | Jointures, agrégations et fraîcheur |
+| Parcours de relations | Relationnel ou graphe | Types de parcours et coût mesuré |
 
-Légende : ✅ choix naturel · ☑️ possible avec des compromis · 🚫 à éviter.
+MongoDB prend en charge les transactions sur plusieurs documents, y compris dans des clusters répartis ; elles ont un coût et ne remplacent pas la conception du modèle. [Transactions MongoDB 7.0](https://www.mongodb.com/docs/v7.0/core/transactions/).
 
-Sur le fil rouge, une boutique réelle combine les deux : les commandes et les paiements en relationnel, le catalogue en documents, les sessions en clé-valeur, les événements de navigation dans un stockage de masse. Ce n'est pas une hésitation, c'est la réponse normale : **plusieurs bases, chacune pour l'accès qu'elle sert bien**.
-
-**Ce qu'il faut retenir.** On ne migre pas un système d'information vers le NoSQL. On identifie les données dont l'accès ne convient plus au relationnel, et on déplace celles-là.
+**Ce qu’il faut retenir.** La formation utilise MongoDB pour pratiquer le modèle documentaire. Elle ne démontre pas qu’il est préférable pour toute boutique.
 
 ## Avantages et inconvénients par rapport aux bases classiques
 
-Chaque avantage du NoSQL est le revers d'une garantie abandonnée. Les lire toujours par paires.
+Les bénéfices et contraintes dépendent du moteur et de sa configuration.
 
-| Ce que NoSQL apporte | Ce que cela coûte |
-|---|---|
-| Schéma souple : un nouveau champ s'ajoute sans migration | La cohérence de la forme revient à l'application ; deux versions du même document peuvent coexister |
-| Pas de jointure : la lecture d'un document est complète en un accès | La donnée est dupliquée là où elle est lue ; une mise à jour doit toucher toutes les copies |
-| Répartition sur plusieurs machines, sans plafond | Les requêtes qui croisent des données réparties sont lentes ou impossibles ; il faut choisir la clé de répartition à l'avance |
-| Disponibilité pendant une panne, grâce aux copies | Deux copies peuvent diverger un instant ; l'application doit accepter de lire une donnée pas tout à fait à jour |
-| Écritures très rapides, sans validation préalable | Les erreurs entrent dans la base ; le nettoyage se fait après, en traitement |
-| Modèle proche des objets de l'application (JSON) | Chaque famille NoSQL a son API ; pas de langage standard équivalent au SQL, et les compétences ne se transfèrent pas d'un moteur à l'autre |
+| Choix | Bénéfice possible | Contrepartie à examiner |
+|---|---|---|
+| Schéma flexible | Faire évoluer les documents | Validation et compatibilité des lecteurs |
+| Regroupement en documents | Lire ensemble des informations liées | Taille du document et mises à jour |
+| Duplication | Éviter certaines lectures croisées | Maintien de la cohérence des copies |
+| Distribution | Répartir la charge | Clés, réseau, coordination et exploitation |
+| Lectures sur des copies | Répartir les lectures | Fraîcheur exigée |
 
-> [!WARNING]
-> **Piège : « sans schéma » ne veut pas dire « sans règles »**
-> MongoDB acceptera un produit dont le prix est une chaîne de caractères, ou un événement sans `client_id`. La base n'a plus la responsabilité de refuser : c'est l'application, ou une validation déclarée dans la collection, qui doit la prendre. Une équipe qui passe au NoSQL sans reprendre cette responsabilité se retrouve avec une base pleine de données que plus personne ne sait lire.
+MongoDB permet une validation de schéma et des transactions ; la recherche par critères n’est pas réservée au relationnel. Il faut vérifier chaque capacité dans le moteur retenu. [Modélisation MongoDB](https://www.mongodb.com/docs/manual/data-modeling/).
 
-**Ce qu'il faut retenir.** Le NoSQL déplace des responsabilités de la base vers l'application : la forme des données, leur cohérence entre copies, leur validation. Il ne les fait pas disparaître.
+**Ce qu’il faut retenir.** Aucun renoncement aux jointures, aux recherches par critères ou aux transactions ne définit à lui seul toutes les bases NoSQL.
 
-## Atelier : quatre formats de données face au relationnel
+## Atelier 0 : quatre formats de données face au relationnel
 
-L'objectif : constater, sur quatre fichiers réels, ce qui coince quand on veut les ranger dans un SGBDR classique, et vérifier que la difficulté ne vient pas du volume mais de la **forme**.
+L’objectif : observer quatre formats de données, identifier les informations à exploiter et comparer plusieurs façons de les organiser. Distinguer les difficultés de préparation, de modélisation et de traitement, sans déduire du seul format le choix d’une base.
+
+> [!IMPORTANT]
+> **Manipulation guidée**
+> Copiez-collez les commandes telles quelles. Pour l’instant, concentrez-vous sur les fichiers et les résultats obtenus. Les commandes MongoDB seront expliquées progressivement dans les ateliers suivants ; la commande JavaScript qui affiche les noms des champs est seulement un outil d’observation.
 
 Les quatre fichiers sont dans `data/formats/` :
 
@@ -376,6 +417,8 @@ Les quatre fichiers sont dans `data/formats/` :
 | `04-clics.csv` | Parcours de deux visiteurs sur le site, 8 événements | CSV avec en-tête |
 
 ### Étape 1 : lire les quatre fichiers
+
+Dans le terminal, depuis la racine du lab. Si l’invite affiche `formation_nosql>`, quitter d’abord `mongosh` avec `exit`.
 
 ```
 cat data/formats/01-serveur-web.log
@@ -395,17 +438,19 @@ cat data/formats/04-clics.csv
 
 ### Étape 2 : proposer une table pour chacun
 
-Pour chaque fichier, répondre par écrit, avant toute manipulation :
+Pour chaque fichier, répondre avant de consulter le corrigé :
 
-1. **Quelles colonnes** faudrait-il à une table unique pour ne rien perdre ?
-2. **Quel type** donner à chaque colonne ? Y a-t-il des colonnes dont le type change d'une ligne à l'autre ?
-3. **Combien de cellules seraient vides** (`NULL`) si toutes les lignes entraient dans cette table ?
-4. **Quelle requête** poserait-on sur ces données ? Une jointure serait-elle nécessaire, et avec quoi ?
-5. **Que se passe-t-il demain** si la source ajoute un champ (un nouveau capteur, un nouveau type d'événement) ?
+1. Quelles informations contient-il et lesquelles faut-il extraire ou transformer ?
+2. Comment les représenter dans une table, plusieurs tables ou des documents ? Pour une table unique à colonnes fixes, quels types et quelles cellules vides prévoir ?
+3. Quelle opération souhaite-t-on effectuer : recherche, agrégation, parcours ou mise à jour ?
+4. Que faudrait-il modifier si la source ajoutait un champ ?
+5. Quelles informations manquent pour choisir un moteur : volume, débit, délai de réponse, garanties ou contraintes d’exploitation ?
+
+La table unique est une hypothèse à examiner, pas la seule représentation relationnelle.
 
 ### Étape 3 : importer le fichier JSON tel quel
 
-MongoDB accepte le fichier IoT sans déclarer quoi que ce soit. L'importer dans une collection `capteurs` :
+Dans le terminal, depuis la racine du lab, importer le fichier IoT dans une collection `capteurs` :
 
 ```
 docker compose exec -T mongodb mongoimport --db=formation_nosql --collection=capteurs --drop --file=/lab/data/formats/02-capteur-iot.jsonl
@@ -413,17 +458,23 @@ docker compose exec -T mongodb mongoimport --db=formation_nosql --collection=cap
 
 Résultat attendu :
 
-```
+```text
 7 document(s) imported successfully. 0 document(s) failed to import.
 ```
 
-Puis, dans `mongosh` (`docker compose exec mongodb mongosh mongodb://localhost:27017/formation_nosql`), afficher les champs présents dans chaque document :
+Ouvrir ensuite `mongosh` depuis le terminal :
+
+```
+docker compose exec mongodb mongosh mongodb://localhost:27017/formation_nosql
+```
+
+À l’invite `formation_nosql>`, afficher les champs présents dans chaque document :
 
 ```
 db.capteurs.find({}, { _id: 0 }).forEach(d => print(Object.keys(d).join(", ")))
 ```
 
-**À observer** : chaque ligne a sa propre liste de champs. Aucun `NULL`, aucune colonne vide, aucune table déclarée. L'ordre d'affichage peut différer de l'ordre du fichier.
+**À observer** : chaque document a sa propre liste de champs, sans colonne à déclarer pour chaque mesure. Un champ absent est distinct d’un champ présent contenant `null`. L'ordre d'affichage peut différer de l'ordre du fichier.
 
 Une requête sur un champ que seuls certains documents possèdent fonctionne quand même :
 
@@ -449,13 +500,15 @@ db.capteurs.drop()
 
 ### Étape 4 : conclure
 
-Reprendre la question 5 de l'étape 2 pour chaque fichier, et formuler en une phrase, pour chacun, **ce qui coince** : le schéma, le type, les vides, la jointure, ou l'évolution. Le corrigé propose une réponse par fichier ; la comparaison avec la vôtre est le vrai contenu de l'atelier.
+Pour chaque fichier, présenter une représentation possible, une opération attendue et une information manquante pour choisir un moteur. Comparer avec le corrigé.
 
-**Ce qu'il faut retenir.** Sur ces quatre fichiers, aucun ne dépasse quelques lignes, et le relationnel coince déjà. Le problème est la forme, pas le volume : le volume ne fait que le rendre impossible à contourner.
+L’import dans MongoDB montre une façon de conserver des documents variables. PostgreSQL peut également les conserver dans une colonne JSON ; cet atelier ne compare pas les performances des deux moteurs.
 
-# Jour 1 · Différentes familles NoSQL
+**Ce qu’il faut retenir.** Ces petits fichiers permettent d’observer les formats et de discuter la modélisation. Ils ne prouvent aucune limite de performance ni l’inadaptation du relationnel. Le choix dépend de la forme, des opérations, des garanties et de la charge.
 
-« NoSQL » ne désigne pas une technologie mais quatre façons différentes d'organiser l'accès aux données. Chaque famille a été conçue pour une forme d'accès, et c'est cette forme, pas le volume ni la mode, qui décide de son usage. Cette section les parcourt une à une sur le fil rouge, puis s'arrête sur la question que toutes posent : qui garantit l'intégrité quand ce n'est plus la base.
+# Familles NoSQL et intégrité
+
+« NoSQL » regroupe plusieurs familles de modèles et de moteurs. Cette section présente quatre familles sur le fil rouge. Leurs accès privilégiés orientent la comparaison, avec la charge, les garanties et les contraintes d’exploitation. L’intégrité peut être contrôlée par la base et par l’application : il faut préciser leurs responsabilités selon le moteur retenu.
 
 ## Principaux acteurs et solutions du marché
 
@@ -470,7 +523,7 @@ Deux remarques pour lire ce tableau sans se tromper.
 
 Les frontières sont poreuses : Redis stocke aussi des structures (listes, tables de hachage), MongoDB sait faire des requêtes de graphe simples, Cassandra accepte un JSON dans une colonne. Une famille se reconnaît à **l'accès pour lequel elle est optimisée**, pas à ce qu'elle tolère.
 
-Les moteurs cloud (DynamoDB, Cosmos DB, Bigtable) sont des services : on n'installe rien, on paie à l'usage, et on renonce à voir ce qui se passe à l'intérieur. Ils reviennent au Jour 2.
+Les moteurs cloud (DynamoDB, Cosmos DB, Bigtable) sont des services : on n'installe rien, on paie à l'usage, et on renonce à voir ce qui se passe à l'intérieur. Ils réapparaissent dans le chapitre « Big Data et services managés ».
 
 **Ce qu'il faut retenir.** Quatre familles, quatre formes d'accès. La question à poser avant de choisir n'est pas « quel moteur » mais « comment je lis, comment j'écris ».
 
@@ -585,13 +638,26 @@ db.createCollection("stock", { validator: { $jsonSchema: {
 } } })
 ```
 
+Ce bloc se lit ainsi. `validator` est la règle que MongoDB applique à chaque document écrit dans la collection. `$jsonSchema` indique que cette règle est exprimée en **JSON Schema**, un standard indépendant de MongoDB qui décrit la forme attendue d'un document JSON. Ses mots-clés :
+
+| Mot-clé | Rôle | Dans l'exemple |
+|---|---|---|
+| `bsonType` | Type attendu, dans le vocabulaire BSON de MongoDB (`object`, `string`, `int`, `double`, `array`, `date`…) | Le document est un objet, `product_id` une chaîne, `quantite` un entier |
+| `required` | Liste des champs qui doivent être présents | `product_id` et `quantite` |
+| `properties` | Règle par champ ; un champ absent de cette liste est accepté sans contrôle | Deux champs décrits |
+| `minimum` | Borne basse d'un nombre | La quantité ne descend pas sous 0 |
+
+Deux réglages complètent le validateur, avec des valeurs par défaut à connaître. `validationAction` vaut `error` : le document non conforme est refusé ; avec `warn`, il est accepté et une ligne est écrite dans le journal du serveur. `validationLevel` vaut `strict` : tout insert et tout update est contrôlé ; avec `moderate`, les documents déjà présents et non conformes ne sont pas contrôlés lors de leurs mises à jour, ce qui permet d'ajouter une validation sur une collection existante sans bloquer l'application. Sur une collection déjà créée, la validation s'ajoute ou se modifie avec `collMod`.
+
+[Documentation officielle de la validation de schéma](https://www.mongodb.com/docs/manual/core/schema-validation/)
+
 La même insertion est maintenant refusée :
 
 ```
 db.stock.insertOne({ product_id: "P101", quantite: "beaucoup" })
 ```
 
-```
+```text
 MongoServerError: Document failed validation
 ```
 
@@ -603,7 +669,9 @@ db.stock.insertOne({ product_id: "P101", quantite: NumberInt(3) })
 
 > [!NOTE]
 > **Question : pourquoi `NumberInt(3)` et pas simplement `3` ?**
-> Parce que `mongosh` est un interpréteur JavaScript, et qu'en JavaScript `3` est un nombre à virgule flottante, que MongoDB stocke en `double`. Le validateur exige un `int`. Dans une application Java, Python ou Node, le pilote envoie le bon type ; dans le shell, il faut le dire. C'est un piège de shell, pas de base.
+> `NumberInt(3)` rend le type entier explicite. Dans `mongosh`, `3` est déjà stocké en entier 32 bits et passe ce validateur sans conversion explicite. Un nombre non représentable comme entier 32 bits est stocké en `Double`. Le comportement dépend du shell ou du pilote utilisé.
+>
+> [Types numériques dans mongosh](https://www.mongodb.com/docs/mongodb-shell/reference/data-types/).
 
 ### Deuxième niveau : deux clients qui écrivent en même temps
 
@@ -700,7 +768,7 @@ Quand la base est répartie sur plusieurs machines, chaque donnée existe en plu
 | Une lecture voit la dernière écriture | Toujours, sur une seule base | Sur une seule instance, oui ; en réplication, la copie peut être en retard | Réglable par requête : lire sur la copie principale (à jour) ou sur une secondaire (peut-être en retard) | Réglable par requête : combien de copies doivent répondre |
 | Une écriture confirmée survit à une panne | Le journal de transactions | Réglable : jamais, chaque seconde, ou à chaque écriture | Réglable par écriture : combien de copies doivent avoir écrit avant de confirmer | Réglable par écriture : combien de copies |
 
-Ce tableau est le cœur de la formation. Il dit une seule chose, déclinée quatre fois : **en NoSQL, la garantie n'est plus un réglage global de la base, c'est un choix fait requête par requête**, par celui qui écrit le code. Le Jour 2 revient sur les mots exacts (réplication, write concern, read concern) et sur leur coût.
+Ce tableau est le cœur de la formation. Il dit une seule chose, déclinée quatre fois : **en NoSQL, la garantie n'est plus un réglage global de la base, c'est un choix fait requête par requête**, par celui qui écrit le code. Le chapitre « Distribuer et exploiter MongoDB » revient sur les mots exacts (réplication, write concern, read concern) et sur leur coût.
 
 > [!IMPORTANT]
 > Le compromis derrière tout cela porte un nom, le **théorème CAP** : sur un système réparti, quand le réseau coupe entre deux machines (une Partition), il faut choisir entre rester Cohérent (refuser de répondre tant qu'on n'est pas sûr) et rester Disponible (répondre avec ce qu'on a, peut-être périmé). On ne peut pas avoir les deux pendant la coupure. Les moteurs se rangent par leur choix par défaut : MongoDB et HBase penchent vers la cohérence, Cassandra et DynamoDB vers la disponibilité, et tous permettent de déplacer le curseur.
@@ -733,7 +801,7 @@ La modélisation change de logique par rapport au relationnel. On ne demande plu
 
 > [!WARNING]
 > **Piège : le document qui grossit sans fin**
-> Mettre tous les événements d'un client dans son document client est tentant, tout est lu en un accès. Mais le document grossit à chaque clic, chaque lecture le charge en entier, et MongoDB limite un document à 16 Mo. La règle : on imbrique ce qui est **borné** (les attributs d'un produit, les lignes d'une commande), on référence ce qui est **illimité** (l'historique d'un client). Le Jour 2 y revient avec l'atelier de modélisation.
+> Mettre tous les événements d'un client dans son document client est tentant, tout est lu en un accès. Mais le document grossit à chaque clic, chaque lecture le charge en entier, et MongoDB limite un document à 16 Mo. La règle : on imbrique ce qui est **borné** (les attributs d'un produit, les lignes d'une commande), on référence ce qui est **illimité** (l'historique d'un client). Le chapitre « Modéliser et interroger avec MongoDB » applique cette distinction aux données du lab.
 
 **Ce qu'il faut retenir.** Le document stocke un objet complet et l'interroge par n'importe quel champ. Il se modélise par l'usage en lecture, pas par la normalisation.
 
@@ -807,7 +875,7 @@ Le modèle, tel que Google l'a décrit pour Bigtable et que HBase reprend : une 
 
 Sur le fil rouge, la table `events_by_client` du lab :
 
-```
+```text
 Clé de ligne                       | evt:type          evt:product  evt:channel | payload:phone
 -----------------------------------+--------------------------------------------+------------------
 C042#20260912#095810#E000181       | product_viewed    P101         mobile      |
@@ -831,503 +899,608 @@ HBase et Cassandra partagent ce modèle et diffèrent par l'architecture :
 
 **Ce qu'il faut retenir.** Colonnes larges : une carte triée par clé, répartie, où la clé porte la question. Rapide sur un parcours de plage, incapable sur tout le reste. On modélise par requête, une table par accès.
 
-## L'écosystème Hadoop
+# Modéliser et interroger avec MongoDB
 
-Hadoop n'est pas une base de données. C'est la réimplémentation libre des trois articles de Google : un système de fichiers réparti, un ordonnanceur de ressources, un modèle de traitement. Tout le reste s'est construit dessus.
+Tout ce qui précède se rejoue maintenant les mains sur le clavier, dans un seul moteur. MongoDB est choisi parce qu'il est le documentaire le plus répandu et parce qu'il porte, dans un seul produit, tout ce que la formation a nommé : documents, index, réplication, partitionnement, administration. Les cinq ateliers s'enchaînent sur les données du fil rouge et apparaissent au moment où leur manipulation devient utile.
 
-```mermaid
-graph TD
-    subgraph Stockage
-        HDFS["HDFS : fichiers répartis, répliqués 3 fois"]
-    end
-    subgraph Ressources
-        YARN["YARN : distribue CPU et mémoire aux traitements"]
-    end
-    subgraph Traitement
-        MR["MapReduce : traitement par lots, historique"]
-        SPARK["Spark : traitement en mémoire, remplace MapReduce"]
-        HIVE["Hive : SQL sur les fichiers HDFS"]
-    end
-    subgraph Base
-        HBASE["HBase : accès par clé, au-dessus de HDFS"]
-    end
-    HDFS --> HBASE
-    HDFS --> MR
-    HDFS --> SPARK
-    HDFS --> HIVE
-    YARN --> MR
-    YARN --> SPARK
-    style HDFS fill:#264653,color:#fff
-    style HBASE fill:#2a9d8f,color:#fff
-    style SPARK fill:#e76f51,color:#fff
+Avant de commencer, remettre le lab dans son état de référence :
+
+```
+sh scripts/load-data.sh
 ```
 
-**HDFS** découpe chaque fichier en blocs (128 Mo par défaut), copie chaque bloc sur trois machines, et sait quel bloc est où. Un disque qui meurt ne perd rien. Il ne sait faire que écrire un fichier en entier et le relire en entier : pas de modification en place, pas d'accès à une ligne.
+Puis ouvrir le shell. L’Atelier 3 demandera de le quitter le temps d’importer un fichier, puis de le rouvrir :
 
-**MapReduce** est le modèle de traitement d'origine : une fonction *map* appliquée à chaque bloc en parallèle, sur la machine qui le porte, puis une fonction *reduce* qui rassemble. C'est lent (tout passe par le disque entre les deux) et il a été remplacé par Spark pour presque tout, mais l'idée reste : **amener le calcul à la donnée**, pas l'inverse.
+```
+docker compose exec mongodb mongosh mongodb://localhost:27017/formation_nosql
+```
 
-**HBase** ajoute ce que HDFS ne sait pas faire : lire et écrire une ligne, par sa clé, en quelques millisecondes, tout en stockant sur HDFS. C'est la base opérationnelle du cluster.
+Chaque atelier a son énoncé ici et son corrigé en fin de Guide.
 
-Les différences avec un SGBDR, en trois lignes : Hadoop lit des fichiers entiers là où le SGBDR lit des lignes ; il répartit sur des machines banales là où le SGBDR grossit une machine ; il accepte n'importe quel format de fichier là où le SGBDR impose un schéma. Et le lien avec NoSQL : HBase **est** une base NoSQL, la seule de la famille qui vive dans Hadoop ; les autres (MongoDB, Cassandra, Redis) sont indépendantes et se connectent à Spark quand on veut les traiter en masse.
+## Atelier 1 : premiers pas avec le shell de MongoDB
 
-**Ce qu'il faut retenir.** Hadoop = un stockage de fichiers réparti (HDFS) + des traitements qui viennent au fichier (MapReduce, puis Spark). HBase est la base par clé posée dessus. Le Jour 2 fait tourner Spark sur les données du fil rouge.
+**Objectif** : effectuer trois lectures simples dans la collection `produits`.
 
-## Atelier : manipuler des données avec HBase
+### Étape 1 : compter les produits
 
-Objectif : constater sur la table `events_by_client` ce que le modèle en colonnes larges sait faire vite (lire une ligne, parcourir une plage) et ce qu'il ne sait pas faire (chercher par une valeur).
+Exécuter :
+
+```
+db.produits.countDocuments()
+```
+
+**Résultat attendu** : `8`.
+
+Dans `db.produits.countDocuments()`, `db` désigne la base courante, `produits` la collection et `countDocuments()` l’opération qui compte ses documents. C’est la forme générale `db.<collection>.<opération>()`.
+
+### Étape 2 : afficher les catégories
+
+Exécuter :
+
+```
+db.produits.distinct("category")
+```
+
+**Résultat attendu** : quatre catégories : `appareil-photo`, `cafe`, `casque-audio` et `sac-a-dos`.
+
+### Étape 3 : afficher le produit le plus cher
+
+Exécuter :
+
+```
+db.produits
+  .find({}, { _id: 0, product_id: 1, name: 1, price: 1 })
+  .sort({ price: -1 })
+  .limit(1)
+```
+
+**Résultat attendu** : `P101`, « Horizon X100 », au prix de `749`.
+
+**À observer** : le tri `{ price: -1 }` place les prix les plus élevés en premier ; `limit(1)` conserve uniquement le premier résultat.
+
+`find(filtre, projection)` sépare ce que l’on cherche de ce que l’on affiche. Le filtre vide `{}` signifie « tous les produits ». La projection `{ _id: 0, product_id: 1, name: 1, price: 1 }` masque `_id` et conserve les trois champs indiqués par `1`. Elle ne modifie pas les documents enregistrés.
+
+## Création de documents et manipulations dans le shell
+
+Le shell est un interpréteur JavaScript avec un objet `db` qui représente la base courante. Trois règles de lecture : `db.<collection>.<opération>(<filtre>, <options>)`, le filtre est un document, et une collection ou une base **n'a pas besoin d'être créée** : elle apparaît à la première écriture.
+
+**À essayer.** Créer une base et une collection sans les déclarer :
+
+```
+use boutique_test
+```
+
+```
+db.essai.insertOne({ bonjour: "monde" })
+```
+
+```
+show collections
+```
+
+```
+db.dropDatabase()
+```
+
+```
+use formation_nosql
+```
+
+Les quatre opérations de base, sur les produits :
+
+```
+db.produits.insertOne({ product_id: "P201", category: "cafe", name: "Altitude Kenya", active: true, price: 13.5, attributes: { origin: "Kenya", roast: "medium" } })
+```
+
+```
+db.produits.find({ category: "cafe" }, { _id: 0, product_id: 1, name: 1, price: 1 }).sort({ price: 1 })
+```
+
+```
+db.produits.updateOne({ product_id: "P201" }, { $set: { price: 14 }, $inc: { "attributes.stock": 20 } })
+```
+
+`$set` remplace `price` ; `$inc` ajoute 20 à `attributes.stock`, qui n'existait pas dans le document inséré : le champ est créé à 20. C'est l'opérateur atomique du chapitre précédent.
+
+```
+db.produits.deleteOne({ product_id: "P201" })
+```
+
+Deux choses à voir dans le résultat de chaque écriture : `acknowledged: true` (le serveur a confirmé, selon le write concern), et les compteurs (`insertedId`, `matchedCount` et `modifiedCount`, `deletedCount`). `matchedCount: 1, modifiedCount: 0` veut dire que le document existait et avait déjà ces valeurs : pas une erreur, une information.
 
 > [!NOTE]
-> HBase est exécuté par le formateur en partage d'écran : son image Docker est lourde et son démarrage prend une à deux minutes. Les commandes sont données ici pour rejouer l'atelier seul après la formation ; elles fonctionnent telles quelles sur le lab.
-
-### Étape 1 : démarrer HBase et charger la table
-
-```
-docker compose --profile bigdata up -d --wait hbase
-```
-
-Attendre l'état `healthy`, qui n'arrive qu'une fois le serveur réellement prêt. Puis charger les seize événements avec le script du lab :
-
-```
-docker compose exec -T hbase hbase shell -n /lab/demos/hbase-load.hbase
-```
-
-Le script crée la table avec deux familles de colonnes, `evt` et `payload`, et fait un `put` par cellule : quatre à cinq lignes de script par événement. C'est le prix du modèle, chaque cellule s'écrit séparément.
-
-### Étape 2 : lire une ligne par sa clé
-
-Ouvrir le shell :
-
-```
-docker compose exec hbase hbase shell
-```
-
-**À observer.** Combien de cellules va retourner la lecture du passage en caisse du client C117 ? (Indice : compter les `put` de cette ligne dans le script.)
-
-```
-get 'events_by_client', 'C117#20260912#101529#E000187'
-```
-
-```
-COLUMN  CELL
- evt:channel timestamp=…, value=web
- evt:product timestamp=…, value=P101
- evt:session timestamp=…, value=S0185
- evt:type timestamp=…, value=checkout_started
- payload:phone timestamp=…, value=06 00 00 00 01
-1 row(s)
-```
-
-Cinq cellules, chacune avec son horodatage. La colonne `payload:phone` n'existe que sur cette ligne : aucune autre ligne ne « porte une valeur vide » pour elle, elle n'y est simplement pas.
-
-### Étape 3 : parcourir tous les événements d'un client
-
-C'est la requête pour laquelle la clé a été conçue. Une plage de `C042#` (inclus) à `C043#` (exclu) :
-
-```
-scan 'events_by_client', {STARTROW => 'C042#', STOPROW => 'C043#', COLUMNS => ['evt:type', 'evt:product']}
-```
-
-```
-ROW  COLUMN+CELL
- C042#20260912#095810#E000181 column=evt:product, …, value=P101
- C042#20260912#095810#E000181 column=evt:type, …, value=product_viewed
- C042#20260912#100042#E000182 column=evt:product, …, value=P103
- C042#20260912#100042#E000182 column=evt:type, …, value=product_viewed
- C042#20260912#100215#E000183 column=evt:product, …, value=P103
- C042#20260912#100215#E000183 column=evt:type, …, value=cart_item_added
- C042#20260912#100321#E000184 column=evt:product, …, value=P103
- C042#20260912#100321#E000184 column=evt:type, …, value=cart_abandoned
-4 row(s)
-```
-
-Quatre lignes, dans l'ordre chronologique, sans tri demandé : l'ordre est celui des clés. Le parcours s'est arrêté à la première clé qui dépasse `C043#`, il n'a pas lu le reste de la table.
-
-### Étape 4 : la requête que la clé ne sert pas
-
-« Tous les événements sur le produit P103. » Aucune clé ne commence par le produit. HBase peut le faire, en lisant **toute la table** et en filtrant :
-
-```
-scan 'events_by_client', {FILTER => "SingleColumnValueFilter('evt', 'product', =, 'binary:P103')", COLUMNS => ['evt:type', 'evt:product']}
-```
-
-```
-ROW  COLUMN+CELL
- C042#20260912#100042#E000182 column=evt:product, …, value=P103
- C042#20260912#100042#E000182 column=evt:type, …, value=product_viewed
- C042#20260912#100215#E000183 column=evt:product, …, value=P103
- C042#20260912#100215#E000183 column=evt:type, …, value=cart_item_added
- C042#20260912#100321#E000184 column=evt:product, …, value=P103
- C042#20260912#100321#E000184 column=evt:type, …, value=cart_abandoned
-3 row(s)
-```
+> **Lire un `ObjectId`**
+> `insertedId: ObjectId('6aaacc362b265b880fc288b9')` est la valeur du `_id` que MongoDB a généré, puisque le document inséré n'en fournissait pas : 12 octets, écrits en 24 caractères hexadécimaux. Ils se lisent en trois parties : 4 octets d'horodatage en secondes, 5 octets aléatoires propres au processus qui a inséré, 3 octets de compteur. `ObjectId('6aaacc362b265b880fc288b9').getTimestamp()` rend la date de création.
+>
+> Conséquence : chaque client génère ses identifiants seul, sans demander de numéro à un compteur central, à la différence d'un `AUTO_INCREMENT`. C'est ce qui permet d'écrire sur plusieurs serveurs à la fois, sujet du chapitre sur la distribution.
+>
+> Un `ObjectId` est un type, pas une chaîne : `find({ _id: "6aaacc362b265b880fc288b9" })` ne trouve rien, il faut `find({ _id: ObjectId("6aaacc362b265b880fc288b9") })`. Le piège classique quand l'identifiant a transité par une URL ou un JSON.
+>
+> Le `_id` peut aussi être fourni par l'application (`_id: "P101"`). Les données du lab gardent l'`ObjectId` généré et un identifiant métier séparé (`product_id`, `order_id`), d'où le `{ _id: 0 }` des projections : il masque une valeur technique sans intérêt de lecture.
 
 > [!WARNING]
-> **Piège : le filtre ne voit que les colonnes demandées**
-> Si `COLUMNS` ne liste que `evt:type`, la colonne `evt:product` n'est jamais lue, le filtre n'a rien à comparer, et il laisse passer **les seize lignes** sans aucune erreur. Un filtre sur une valeur doit toujours inclure sa colonne dans le `scan`. C'est le genre de résultat silencieusement faux qu'on ne remarque que si l'on avait prédit le nombre de lignes attendu.
+> **Piège : `updateOne` sans opérateur**
+> `db.produits.updateOne({ product_id: "P101" }, { price: 700 })` est refusé par le shell moderne, mais `replaceOne` avec le même second argument **remplace tout le document** par `{ price: 700 }` : le nom, la catégorie, les attributs disparaissent. Une mise à jour porte toujours un opérateur (`$set`, `$inc`, `$unset`, `$push`…) ; un remplacement est un geste différent, à faire exprès.
 
-Sur seize lignes, c'est instantané. Sur seize milliards, c'est un parcours complet du cluster. La réponse n'est pas un index, c'est une seconde table, `events_by_product`, alimentée en même temps que la première.
+**Ce qu'il faut retenir.** Le shell parle JavaScript ; les collections naissent à la première écriture ; chaque écriture rend un compte à lire. `$set` modifie, `replaceOne` écrase.
+
+## Atelier 2 : création de bases et de collections
+
+**Objectif** : observer la création d’une base et d’une collection lors de la première insertion.
+
+### Étape 1 : sélectionner une base qui n’existe pas encore
 
 ```
-count 'events_by_client'
+use boutique_test
 ```
+
+Puis afficher les bases :
+
+```
+show dbs
+```
+
+**Résultat attendu** : `boutique_test` n’apparaît pas encore. `use` sélectionne un nom de base, mais n’y enregistre aucune donnée.
+
+### Étape 2 : effectuer la première insertion
+
+```
+db.essai.insertOne({ bonjour: "monde" })
+```
+
+Puis vérifier :
+
+```
+show dbs
+```
+
+```
+show collections
+```
+
+**Résultat attendu** : la base `boutique_test` apparaît et contient la collection `essai`.
+
+### Étape 3 : nettoyer la base de test
+
+```
+db.dropDatabase()
+```
+
+```
+show dbs
+```
+
+```
+use formation_nosql
+```
+
+**Résultat attendu** : `boutique_test` ne figure plus dans la liste. La dernière commande replace le shell dans la base utilisée par la formation.
+
+**À observer** : la première écriture fait apparaître la base et la collection ; leur création n’a pas nécessité de commande séparée.
+
+Ne pas confondre les niveaux de suppression : `deleteOne(filtre)` enlève un document de la collection ; `db.essai.drop()` enlève toute la collection `essai` ; `db.dropDatabase()` enlève toute la base courante. L’Atelier 0 utilisait `db.capteurs.drop()` pour retirer uniquement les documents importés dans `capteurs` avec leur collection.
+
+## Importation de données des SGBDR au format JSON
+
+Le cas le plus fréquent en entreprise : les commandes vivent dans une base relationnelle, et on veut les avoir dans MongoDB, pour le catalogue client, pour l'analytique, ou pour une migration. Trois tables normalisées doivent devenir un document par commande.
+
+Le fichier `data/export-sgbdr/commandes.sql` montre la source : `clients`, `commandes`, `lignes`, et la requête d'export. Le principe : **le SGBDR fait la jointure une dernière fois**, et produit du JSON déjà imbriqué. PostgreSQL le fait avec `json_build_object` et `json_agg` ; MySQL avec `JSON_OBJECT` et `JSON_ARRAYAGG` ; Oracle et SQL Server ont leurs équivalents.
+
+Le déroulé de cette section, en trois temps :
+
+1. **Lire** le SQL ci-dessous, sans l'exécuter : le lab ne contient pas de PostgreSQL, et son résultat est déjà fourni dans `data/export-sgbdr/commandes.json`.
+2. **Importer** ce fichier avec `mongoimport`, depuis un terminal hors du shell.
+3. **Vérifier** dans le shell que la commande O5002 est devenue un document imbriqué.
+
+```sql
+SELECT json_build_object(
+  'order_id', c.order_id,
+  'client',   json_build_object('client_id', cl.client_id, 'email', cl.email, 'ville', cl.ville),
+  'lignes',   (SELECT json_agg(json_build_object('product_id', l.product_id, 'qty', l.qty, 'unit_price', l.unit_price))
+               FROM lignes l WHERE l.order_id = c.order_id)
+)
+FROM commandes c JOIN clients cl ON cl.client_id = c.client_id;
+```
+
+Le résultat est dans `data/export-sgbdr/commandes.json` : un tableau JSON de deux commandes. L'importer, depuis un terminal hors du shell :
+
+```
+docker compose exec -T mongodb mongoimport --db=formation_nosql --collection=commandes --drop --jsonArray --file=/lab/data/export-sgbdr/commandes.json
+```
+
+```text
+2 document(s) imported successfully. 0 document(s) failed to import.
+```
+
+L'option `--jsonArray` dit que le fichier est un tableau `[ … ]` ; sans elle, `mongoimport` attend un document par ligne (le format des autres fichiers du lab, JSON Lines).
+
+**À observer.** La commande O5002 est maintenant un document : son client et ses deux lignes sont dedans, sans jointure.
+
+```
+db.commandes.findOne({ order_id: "O5002" }, { _id: 0 })
+```
+
+Le total de la commande se calcule en descendant dans les lignes. En SQL, ce serait une jointure `commandes`/`lignes` puis un `SUM(qty * unit_price)` avec `GROUP BY`. En MongoDB, c'est un **pipeline d'agrégation** : une liste d'étapes, chaque étape recevant les documents produits par la précédente. Le construire étape par étape, en exécutant chaque version.
+
+**Étape 1, `$match`** : le filtre, l'équivalent du `WHERE`. Seul O5002 passe.
+
+```
+db.commandes.aggregate([
+  { $match: { order_id: "O5002" } }
+])
+```
+
+Sortie : le document O5002 entier, tel que `findOne` l'a montré, avec son tableau `lignes` de deux éléments.
+
+**Étape 2, `$unwind`** : déplie le tableau. Pour chaque élément de `lignes`, une copie du document est produite, où `lignes` n'est plus un tableau mais cet élément seul.
+
+```
+db.commandes.aggregate([
+  { $match: { order_id: "O5002" } },
+  { $unwind: "$lignes" }
+])
+```
+
+Sortie : **deux** documents, tous deux avec `order_id: 'O5002'`, le premier avec `lignes: { product_id: 'P105', qty: 1, unit_price: 89 }`, le second avec `lignes: { product_id: 'P108', qty: 2, unit_price: 10.9 }`. C'est exactement ce que contenait la table `lignes` avant l'export : `$unwind` sépare temporairement ce que le document avait embarqué, là où la jointure SQL rassemblait ce que la normalisation avait séparé.
+
+**Étape 3, `$group`** : le regroupement, l'équivalent du `GROUP BY` et de l'agrégat. `_id` est la clé de regroupement, ici la valeur de `order_id` ; `total` additionne, document par document, le produit `qty × unit_price`.
+
+```
+db.commandes.aggregate([
+  { $match: { order_id: "O5002" } },
+  { $unwind: "$lignes" },
+  { $group: { _id: "$order_id", total: { $sum: { $multiply: ["$lignes.qty", "$lignes.unit_price"] } } } }
+])
+```
+
+```text
+[ { _id: 'O5002', total: 110.8 } ]
+```
+
+Soit `1 × 89 + 2 × 10.9`. Deux conventions à lire dans ce pipeline :
+
+- Un `$` devant un nom entre guillemets (`"$lignes"`, `"$order_id"`, `"$lignes.qty"`) désigne **la valeur de ce champ**. Sans `$`, c'est le nom d'une clé de sortie (`total`).
+- `$match`, `$unwind`, `$group` sont des **étapes** du pipeline ; `$sum` et `$multiply` sont des **opérateurs d'expression**, utilisés à l'intérieur d'une étape.
+
+Le champ de sortie s'appelle `_id` parce que `$group` impose ce nom pour sa clé de regroupement : ce n'est pas l'`_id` du document d'origine, mais la valeur qui définit le groupe. Avec `_id: null`, tout est regroupé en un seul document, pour un total général.
+
+> [!WARNING]
+> **Piège : les dates arrivent en chaînes**
+> Le JSON n'a pas de type date. `ordered_at` a été importé comme la chaîne `'2026-09-12T10:31:02'`, et une comparaison `$gte: ISODate(...)` ne trouvera rien. Vérifier :
+>
+> ```
+> db.commandes.findOne().ordered_at instanceof Date
+> ```
+>
+> Deux remèdes : exporter au format JSON étendu de MongoDB (`{"$date": "..."}`), que `mongoimport` reconnaît ; ou convertir après import, en une seule écriture avec un pipeline de mise à jour :
+>
+> ```
+> db.commandes.updateMany({}, [{ $set: { ordered_at: { $toDate: "$ordered_at" } } }])
+> ```
+>
+> Même vigilance pour les nombres (`NUMERIC` devient `double`, pas `Decimal128`) et les booléens exportés en `0` / `1`.
+
+**Ce qu'il faut retenir.** Le SGBDR produit le document par sa dernière jointure ; `mongoimport` le charge ; les types (dates, décimaux) se vérifient après import, parce que JSON ne les porte pas.
+
+## Atelier 3 : intégration de données au format JSON
+
+**Objectif** : importer dans MongoDB sept messages JSON dont les champs peuvent varier.
+
+### Étape 1 : observer le fichier à importer
+
+Quitter d’abord `mongosh` :
 
 ```
 exit
 ```
 
-**Ce qu'il faut retenir.** Un `get` par clé et un `scan` par plage sont les deux seuls accès rapides. Tout le reste est un parcours complet, et la modélisation consiste à ne jamais en avoir besoin.
-
-## Atelier : observer le format des données sur Cassandra, Redis et MongoDB
-
-Objectif : voir la même information, un événement du fil rouge, sous les trois formes que lui donnent les trois moteurs, et dire pour chacun ce qui en découle.
-
-> [!NOTE]
-> **Pourquoi Cassandra n'est pas lancé dans le lab**
-> Un nœud Cassandra est une machine virtuelle Java qui réclame plusieurs Go de mémoire et met une à deux minutes à démarrer, pour une observation qui dure cinq minutes. Sur un poste stagiaire en visioconférence, avec MongoDB et HBase déjà lancés, ce serait l'atelier le plus long à installer et le moins manipulé. Son format se lit dans `demos/cassandra-format.cql`, un script CQL commenté ; il s'exécute tel quel sur un Cassandra 4 ou 5 si vous en avez un sous la main plus tard.
-
-### Redis : la valeur est opaque
-
-Si Redis n'est pas encore lancé : `docker compose --profile familles up -d --wait redis`, puis `docker compose exec redis redis-cli`.
-
-Un événement stocké comme une chaîne JSON sous une clé :
+De retour dans le terminal, afficher le fichier :
 
 ```
-SET event:E000183 '{"event_type":"cart_item_added","client_id":"C042","product_id":"P103"}'
+cat data/messages-applicatifs.jsonl
 ```
 
+Chaque ligne contient un document JSON. Tous les messages possèdent `source`, `received_at`, `level` et `message`. Les autres champs dépendent de l’application qui a produit le message.
+
+### Étape 2 : importer les messages
+
+Depuis la racine de `formation-nosql-lab` :
+
 ```
-GET event:E000183
+docker compose exec -T mongodb mongoimport --db=formation_nosql --collection=messages --drop --file=/lab/data/messages-applicatifs.jsonl
 ```
 
-Redis rend la chaîne, exactement. Il ne sait pas qu'il y a un `product_id` dedans. Une requête « les événements du produit P103 » est impossible sans lire toutes les clés `event:*`.
+Cette commande part du **terminal du poste**. `docker compose exec -T mongodb` lance `mongoimport` dans le conteneur du service `mongodb` ; `-T` désactive l’allocation d’un terminal interactif. `--db` choisit la base, `--collection` la collection, `--drop` remplace cette collection si elle existe déjà, et `--file` donne le chemin du fichier **vu depuis le conteneur** (`/lab/data/...`). Le `cat` précédent utilisait le chemin du même fichier **vu depuis le poste** (`data/...`). L’Atelier 0 utilisait exactement ce mécanisme pour le fichier IoT.
+
+**Résultat attendu** : `7 document(s) imported successfully. 0 document(s) failed to import.`
+
+### Étape 3 : vérifier le nombre de documents
+
+Rouvrir le shell et compter les messages :
 
 ```
-TYPE event:E000183
+docker compose exec mongodb mongosh mongodb://localhost:27017/formation_nosql
 ```
 
 ```
-DEL event:E000183
+db.messages.countDocuments()
 ```
 
-Le format Redis, c'est la clé : toute la modélisation est dans sa composition (`session:S0184:client`, `panier:S0184`, `event:E000183`).
+**Résultat attendu** : `7`.
 
-### MongoDB : la valeur est un document interrogeable
+**À observer** : les sept documents appartiennent à la même collection, même s’ils ne possèdent pas tous exactement les mêmes champs.
 
-Le même événement, tel que le lab l'a chargé :
+## Atelier 4 : requêtage sur ces données
 
-```
-db.evenements.findOne({ event_id: "E000183" }, { _id: 0 })
-```
+**Objectif** : lire des événements, modifier un produit puis vérifier l’état enregistré.
 
-```
-{
-  event_id: 'E000183',
-  occurred_at: '2026-09-12T10:02:15Z',
-  event_type: 'cart_item_added',
-  session_id: 'S0184',
-  client_id: 'C042',
-  product_id: 'P103',
-  channel: 'mobile',
-  payload: { quantity: 1 }
-}
-```
-
-La base voit chaque champ, et « les événements du produit P103 » est une requête ordinaire :
+### Étape 1 : afficher les passages en caisse
 
 ```
-db.evenements.find({ product_id: "P103" }, { _id: 0, event_id: 1, event_type: 1 })
+db.evenements.find(
+  { event_type: "checkout_started" },
+  { _id: 0, event_id: 1, "payload.phone": 1 }
+)
 ```
 
-Sans index sur `product_id`, elle parcourt la collection ; avec, elle est directe. La différence avec HBase et Cassandra est là : un index secondaire s'ajoute après coup, sans dupliquer la table.
+**Résultat attendu** : trois événements — `E000187`, `E000191` et `E000195`.
 
-### Cassandra : la clé porte la question, en syntaxe SQL
-
-Lire le fichier :
+### Étape 2 : retrouver le dernier événement de C042
 
 ```
-cat demos/cassandra-format.cql
+db.evenements.find(
+  { client_id: "C042" },
+  { _id: 0, occurred_at: 1, event_type: 1 }
+).sort({ occurred_at: -1 }).limit(1)
 ```
 
-La table `events_by_client` y est déclarée avec une clé en deux parties : `client_id` est la **clé de partition** (elle décide sur quel nœud vivent les lignes), `occurred_at` et `event_id` sont les **colonnes de clustering** (elles ordonnent les lignes dans la partition). C'est exactement la clé composée de HBase, `client#date#événement`, mais déclarée en colonnes typées au lieu d'être concaténée dans une chaîne.
+**Résultat attendu** : `cart_abandoned` à `10:03:21`.
 
-Le `SELECT … WHERE client_id = 'C042'` fonctionne : une partition, triée. Le `SELECT … WHERE product_id = 'P103'` est **refusé** par le moteur, avec un message qui dit pourquoi : il faudrait parcourir tout le cluster. La réponse Cassandra est la même que HBase, une seconde table `events_by_product`.
+### Étape 3 : modifier P104 une seule fois
 
-### Comparer
+```
+db.produits.updateOne(
+  { product_id: "P104", active: false },
+  { $set: { active: true }, $inc: { price: -10 } }
+)
+```
 
-Remplir ce tableau avant de lire le corrigé :
+**Premier résultat attendu** : `matchedCount: 1`, `modifiedCount: 1`.
 
-| | Redis | MongoDB | Cassandra |
-|---|---|---|---|
-| Où est la structure de l'événement ? | | | |
-| « Les événements du produit P103 » | | | |
-| Ajouter un champ demain | | | |
-| Ce que le moteur garantit sur le type d'un champ | | | |
+Relire le produit :
 
-**Ce qu'il faut retenir.** Trois moteurs, trois endroits pour la structure : dans le nom de la clé (Redis), dans le document (MongoDB), dans la déclaration de la table et de sa clé (Cassandra). Cet endroit décide de ce qu'on pourra demander plus tard.
+```
+db.produits.findOne(
+  { product_id: "P104" },
+  { _id: 0, product_id: 1, active: 1, price: 1 }
+)
+```
 
-# Jour 1 · Comment choisir une base NoSQL ?
+**État attendu** : `active: true`, `price: 149`.
 
-Les deux premières sections ont donné le vocabulaire et les familles. Celle-ci répond à la question qu'on vous posera au bureau : « on prend quoi ? ». La réponse n'est jamais un nom de produit ; c'est une grille de critères, remplie pour votre cas. La section se termine par la construction de cette grille.
+Relancer ensuite exactement la même mise à jour.
 
-## Synthèse des principaux acteurs Open Source
+**Deuxième résultat attendu** : `matchedCount: 0`, `modifiedCount: 0`. Le filtre exige `active: false`, mais le produit est maintenant actif ; son prix ne baisse donc pas une seconde fois.
 
-| Moteur | Famille | Licence et éditeur | Ce qu'il fait mieux que les autres | Ce qui fait hésiter |
-|---|---|---|---|---|
-| MongoDB | Document | SSPL (source disponible, pas OSI) ; MongoDB Inc., qui vend Atlas, le service managé | Le plus complet des documentaires : requêtes riches, index secondaires, agrégations, transactions, réplication et partitionnement intégrés | La licence SSPL exclut de le proposer soi-même en service ; les fonctions avancées poussent vers Atlas |
-| Apache Cassandra | Colonnes larges | Apache 2.0 ; fondation Apache, DataStax en éditeur commercial | Écritures massives sans point de défaillance, multi-centres de données natif | Modélisation par requête à apprendre ; opérations (compaction, réparation) qui demandent de l'expérience |
-| Redis | Clé-valeur et structures | Redis 7.4 sous licence RSALv2/SSPL (2024), puis AGPL à partir de Redis 8 (2025) ; le fork Valkey (Linux Foundation) reste BSD | Latence en mémoire, structures riches (listes, ensembles, flux), expiration native | Tout tient en RAM : le coût suit le volume ; la persistance est un réglage à comprendre |
-| Couchbase | Document, avec cache clé-valeur intégré | BSL (Business Source License) ; Couchbase Inc. | Un langage de requête proche de SQL (SQL++), et le cache mémoire fusionné avec la base | Communauté plus petite ; le passage de Apache 2.0 à BSL en 2021 a refroidi une partie des utilisateurs |
-| Apache HBase | Colonnes larges | Apache 2.0 | Accès par clé sur un lac de données Hadoop existant | N'a de sens qu'avec Hadoop ; lourd à opérer seul |
-| Neo4j | Graphe | Community en GPLv3, Enterprise commerciale | Le langage Cypher et le parcours de relations | La version libre n'a ni réplication ni partitionnement |
+**À observer** : le filtre d’une mise à jour décrit aussi l’état dans lequel le document doit se trouver avant la modification.
 
-> [!WARNING]
-> **Piège : « Open Source » n'est plus un mot sûr**
-> MongoDB, Redis, Couchbase et Elasticsearch ont tous changé de licence entre 2018 et 2024 pour empêcher les fournisseurs cloud de vendre leur logiciel en service. Le code se lit toujours, s'installe toujours, mais les conditions d'usage ont changé, et des forks sont nés (Valkey pour Redis, OpenSearch pour Elasticsearch). Avant de retenir un moteur, lire sa licence **de la version que vous installerez**, pas celle qu'il avait quand vous l'avez connu.
+**Retour sur les filtres de l’Atelier 0.** Dans `{ temperature_c: { $gt: 18.5 } }`, `$gt` veut dire « strictement supérieur à » ; la requête ne retient que les documents dont la température dépasse `18.5`. Dans `{ temperature_c: { $exists: false } }`, `$exists: false` veut dire « le champ est absent » ; un champ présent dont la valeur est `null` n’est pas absent. `countDocuments(filtre)` compte uniquement les documents qui satisfont ce filtre, tandis que `countDocuments()` compte toute la collection. Ces rappels expliquent les résultats observés dans l’Atelier 0 ; aucune nouvelle manipulation n’est demandée ici.
 
-**Ce qu'il faut retenir.** Le choix entre ces moteurs se fait d'abord par famille, donc par accès ; ensuite par le poids de l'opérer soi-même ; enfin par la licence, qui bouge.
+## Indexer les données
 
-## Les choix matériels
+La requête « les cafés actifs, triés par prix » fonctionne depuis l'Atelier 4. La question de cette section : **comment** MongoDB les trouve-t-il ? Sur les huit produits du lab, peu importe. Sur huit millions, la réponse décide si la requête prend une milliseconde ou fait tomber la base.
 
-Chaque famille sollicite le matériel différemment, et c'est un critère de choix aussi concret que les fonctionnalités.
+### Ce qu'est un index
 
-| Ressource | Ce qui la consomme | Moteurs concernés |
-|---|---|---|
-| Mémoire vive | Tout ce qui doit être servi en microsecondes ; le jeu de travail (données et index chauds) | Redis : tout ; MongoDB et Cassandra : le jeu de travail, le reste sur disque |
-| Disque, en débit | Les écritures en flux, les compactions, les parcours de plage | Cassandra, HBase, MongoDB pour les collections d'événements |
-| Disque, en volume | Les copies : chaque donnée existe deux ou trois fois | Toutes les bases répliquées ; compter le facteur de réplication dans le dimensionnement |
-| Réseau | Les échanges entre copies, les requêtes qui traversent plusieurs nœuds | Toutes les bases réparties ; plus critique quand les nœuds sont sur plusieurs sites |
-| Nombre de machines | La tolérance aux pannes : trois nœuds est le minimum pour qu'une majorité survive à la perte d'un | MongoDB (replica set), Cassandra, HBase |
+Sans index, MongoDB n'a qu'un moyen de répondre : lire chaque document de la collection, du premier au dernier, et garder ceux qui passent le filtre. C'est comme chercher un mot dans un livre en lisant toutes les pages.
 
-Deux règles pratiques. Un SSD n'est pas un confort mais un prérequis pour les bases qui écrivent en flux : la compaction de Cassandra ou l'écriture du journal de MongoDB sur un disque mécanique fait chuter tout le cluster. Et le nombre trois revient partout : trois copies, trois nœuds, parce qu'avec deux, on ne sait pas qui a raison quand ils divergent.
+Un *index* est ce que l'index d'un livre est aux pages : une **liste triée** des valeurs d'un champ, où chaque valeur est accompagnée de l'adresse des documents qui la portent. Un index sur `category` ressemble à ceci :
 
-**Ce qu'il faut retenir.** Dimensionner par la ressource que la famille sollicite, et prévoir trois nœuds et le facteur de réplication dès le premier devis.
+```text
+appareil-photo  → P101, P102
+cafe            → P107, P108
+casque-audio    → P103, P104
+sac-a-dos       → P105, P106
+```
 
-## Comment aborder la migration ?
+Parce que la liste est triée, deux choses deviennent possibles sans lire la collection : **trouver** une valeur directement (aller à `cafe`, prendre les adresses), et **parcourir dans l'ordre** (les entrées sont déjà rangées). Le prix : MongoDB doit tenir cette liste à jour, donc chaque insertion, modification ou suppression sur la collection écrit aussi dans l'index.
 
-Une migration vers le NoSQL n'est presque jamais « on remplace la base ». C'est « on sort un usage de la base relationnelle parce qu'il ne s'y porte plus ». Trois étapes, dans cet ordre, et la première est celle qu'on saute le plus souvent.
+> Un index ne change jamais le résultat d'une requête. Il change seulement le chemin pour l'obtenir.
 
-**Identifier l'accès qui ne va plus.** Une table qui grossit sans fin (événements, journaux), une table à colonnes vides (attributs variables), un cache reconstruit à chaque requête (sessions), une requête de parcours de liens qui fait dix jointures. C'est **cet accès-là** qui migre, pas le système.
+Trois expériences, sur la même requête, pour voir ce chemin changer.
 
-**Remodeler pour l'accès, pas transposer le schéma.** Copier les tables en collections du même nom est la première erreur : on obtient du relationnel sans jointures, le pire des deux mondes. Il faut partir des lectures (« qu'est-ce qui est lu ensemble ? ») et écrire le nouveau modèle à partir d'elles, quitte à dupliquer.
+### Expérience 1 : mesurer sans index
 
-**Faire coexister, puis basculer.** Jamais de bascule en une nuit. La démarche, telle que les cas publiés la décrivent (le Jour 1 cite celui de Venmo vers DynamoDB) :
+MongoDB sait dire comment il a exécuté une requête : `explain("executionStats")` l'exécute et rend un compte-rendu au lieu du résultat. Le compte-rendu est long ; en lire d'abord deux nombres.
 
-1. **Chargement initial** : copier l'historique dans le nouveau modèle, par un traitement de masse, pendant que l'ancien système continue de vivre.
-2. **Double écriture** : l'application écrit dans les deux bases, l'ancienne faisant toujours foi. Les outils de capture de changements (le journal de la base source relu en continu) évitent de modifier le code pour cela.
-3. **Réconciliation** : comparer les deux bases, chaque nuit, et corriger le nouveau modèle jusqu'à ce que l'écart soit nul.
-4. **Bascule progressive des lectures** : une fonctionnalité à la fois, un pourcentage d'utilisateurs à la fois, en mesurant.
-5. **Bascule des écritures, puis arrêt de l'ancienne base**, seulement quand plus rien ne la lit. Tant qu'elle reçoit les écritures, le retour arrière est possible ; après, il ne l'est plus.
+```
+db.produits.find({ category: "cafe", active: true }).sort({ price: 1 }).explain("executionStats").executionStats.totalDocsExamined
+```
+
+```
+db.produits.find({ category: "cafe", active: true }).sort({ price: 1 }).explain("executionStats").executionStats.nReturned
+```
+
+Comprendre la première ligne, morceau par morceau :
+
+- `find({ category: "cafe", active: true }).sort({ price: 1 })` : la requête étudiée, inchangée.
+- `.explain("executionStats")` : au lieu des documents, rendre le compte-rendu d'exécution.
+- `.executionStats.totalDocsExamined` : dans ce compte-rendu, le nombre de documents que MongoDB a dû lire pour répondre.
+- `nReturned`, dans la seconde ligne : le nombre de documents effectivement rendus.
+
+```text
+8
+2
+```
+
+Huit documents lus pour deux rendus : MongoDB a parcouru toute la collection. Le compte-rendu le dit aussi en toutes lettres, dans le *plan* de la requête, la liste des étapes qu'il a enchaînées :
+
+```
+db.produits.find({ category: "cafe", active: true }).sort({ price: 1 }).explain("executionStats").queryPlanner.winningPlan
+```
+
+La sortie est un objet imbriqué : chaque étape contient dans `inputStage` l'étape qui la nourrit. L'étape la plus profonde s'exécute en premier. Résumé en une ligne, à lire de droite à gauche :
+
+```text
+SORT <- COLLSCAN
+```
+
+- `COLLSCAN`, pour *collection scan* : parcours complet de la collection, en appliquant le filtre à chaque document.
+- `SORT` : les documents retenus sont triés en mémoire par `price`, puisque rien ne les a fournis dans l'ordre.
+
+Sur huit documents, ce parcours est invisible. Sur huit millions, c'est la requête qui fait tomber la base.
+
+### Expérience 2 : un index qui trouve
+
+Créer un index sur le champ du filtre, puis refaire **exactement** les deux mesures :
+
+```
+db.produits.createIndex({ category: 1 }, { name: "idx_category" })
+```
+
+`{ category: 1 }` désigne le champ indexé et son sens de tri (`1` croissant, `-1` décroissant). `name` donne un nom à l'index, pour le retrouver et le supprimer.
+
+```
+db.produits.find({ category: "cafe", active: true }).sort({ price: 1 }).explain("executionStats").executionStats.totalDocsExamined
+```
+
+```text
+2
+```
+
+Deux documents lus pour deux rendus. MongoDB est allé à l'entrée `cafe` de l'index, a pris les deux adresses, et n'a lu que ces deux documents. Le plan :
+
+```text
+SORT <- FETCH <- IXSCAN
+```
+
+- `IXSCAN`, pour *index scan* : lecture des entrées de l'index qui correspondent au filtre.
+- `FETCH` : récupération des documents complets aux adresses trouvées, et vérification du reste du filtre (`active: true`, que l'index ne connaît pas).
+- `SORT` est **toujours là** : l'index est trié par catégorie, pas par prix. Les deux cafés arrivent dans un ordre quelconque et doivent encore être triés en mémoire.
+
+L'index a réglé la recherche. Il reste le tri.
+
+### Expérience 3 : un index qui trie aussi
+
+Retirer le premier index, pour ne mesurer que le second :
+
+```
+db.produits.dropIndex("idx_category")
+```
+
+Un index peut porter plusieurs champs : c'est un *index composé*. Ses entrées sont triées par le premier champ, puis, à premier champ égal, par le deuxième, puis par le troisième. Avec `category`, `active` et `price` dans cet ordre, les entrées pour `cafe` + `true` sont déjà rangées par prix :
+
+```text
+cafe | true | 10.9  → P108
+cafe | true | 12.5  → P107
+```
+
+```
+db.produits.createIndex({ category: 1, active: 1, price: 1 }, { name: "idx_category_active_price" })
+```
+
+Refaire la mesure et lire le plan :
+
+```text
+FETCH <- IXSCAN
+```
+
+Deux documents lus, deux rendus, et **plus de `SORT`** : MongoDB a parcouru les entrées de l'index dans leur ordre, qui est déjà celui demandé. Le filtre entier (`category` et `active`) est dans l'index, `FETCH` ne fait plus que récupérer les documents.
+
+D'où la règle pour ordonner les champs d'un index composé : d'abord les champs comparés par **égalité** (`category`, `active`), puis le champ de **tri** (`price`), puis les champs de **plage** (`$gt`, `$lt`, `$gte`, `$lte`). Les égalités en tête réduisent les entrées à un bloc contigu ; le tri ensuite fait que ce bloc est déjà dans l'ordre ; une plage en dernier, parce qu'après une plage l'ordre des entrées ne sert plus au tri.
 
 ```mermaid
 graph LR
-    A["1 Chargement initial"] --> B["2 Double écriture"]
-    B --> C["3 Réconciliation"]
-    C --> D["4 Bascule des lectures"]
-    D --> E["5 Bascule des écritures"]
-    C -.->|écart non nul| B
-    style A fill:#264653,color:#fff
-    style E fill:#e76f51,color:#fff
+    subgraph E1["Sans index"]
+        A1["COLLSCAN<br/>8 documents lus"] --> A2["2 gardés"] --> A3["SORT<br/>tri en mémoire"]
+    end
+    subgraph E2["Index sur category"]
+        B1["IXSCAN<br/>2 entrées"] --> B2["FETCH<br/>2 documents"] --> B3["SORT<br/>tri en mémoire"]
+    end
+    subgraph E3["Index category, active, price"]
+        C1["IXSCAN<br/>2 entrées, déjà triées"] --> C2["FETCH<br/>2 documents"]
+    end
+    style A1 fill:#e76f51,color:#fff
+    style B1 fill:#e9c46a,color:#000
+    style C1 fill:#2a9d8f,color:#fff
 ```
 
-> [!IMPORTANT]
-> Ce qui ne migre pas avec les données : les **garanties**. Une application qui comptait sur une transaction pour tenir deux tables cohérentes doit être réécrite pour vivre avec des écritures atomiques par document, ou avec une incohérence temporaire. C'est ce point qui coûte, pas la copie des octets.
+### Ce que l'index coûte
 
-**Ce qu'il faut retenir.** On migre un accès, on le remodèle pour la nouvelle famille, on fait coexister avant de basculer. La partie difficile est de réécrire ce qui reposait sur les garanties du relationnel.
+Chaque écriture sur `produits` met désormais aussi à jour `idx_category_active_price`, et l'index occupe de la place en mémoire :
 
-## Les impacts sur le développement client
-
-Le code qui parle à une base NoSQL ne ressemble pas au code SQL, et pas seulement par la syntaxe.
-
-**Plus de langage commun.** Chaque moteur a son API et son pilote. Le code qui interroge MongoDB ne se porte pas sur Cassandra. Une équipe qui connaît trois SGBDR connaît SQL ; une équipe qui connaît trois bases NoSQL connaît trois choses. Le fil rouge en MongoDB, depuis Python :
-
-```python
-from pymongo import MongoClient
-
-client = MongoClient("mongodb://localhost:27017")
-produits = client.formation_nosql.produits
-
-noirs = produits.find({"attributes.color": "noir"}, {"_id": 0, "name": 1})
-for p in noirs:
-    print(p["name"])
-
-produits.update_one({"product_id": "P101"}, {"$inc": {"stock": -1}})
+```
+db.produits.totalIndexSize()
 ```
 
-La requête est un objet du langage (un dictionnaire Python, un objet JSON), pas une chaîne SQL : pas d'injection par concaténation, mais pas d'optimiseur qui réécrit la requête non plus.
+La question avant de créer un index : cette requête est-elle assez fréquente pour que chaque insertion paie ce surcoût ? Une requête lancée une fois par mois sur une collection écrite mille fois par seconde ne le mérite pas.
 
-**Le schéma vit dans le code.** Puisque la base ne le porte plus, c'est l'application qui sait qu'un produit a un `price` numérique. Deux versions de l'application qui écrivent deux formes différentes produisent une collection à deux formes, et c'est le lecteur qui doit gérer les deux. La pratique : un champ de version dans chaque document, et une couche de lecture qui sait migrer à la volée.
+### Un index sert aussi son préfixe
 
-**Les écritures se pensent atomiques ou conditionnelles.** Le réflexe lire-modifier-écrire, vu dans la section précédente, est le bug le plus fréquent des équipes qui arrivent du relationnel. Tout ce qui était une transaction devient une opération atomique sur un document, ou un filtre conditionnel, ou, en dernier recours, une transaction multi-documents dont il faut connaître le coût.
+Un index composé ne se lit que depuis son premier champ, comme un annuaire trié par nom puis prénom permet de chercher un nom, ou un nom et un prénom, mais jamais un prénom seul. `idx_category_active_price` sert donc :
 
-**Le pilote est un composant à part entière.** Il gère le pool de connexions, la découverte des nœuds, le basculement quand un serveur tombe, les tentatives. Le configurer (délais, nombre de tentatives, sur quelle copie lire) fait partie du développement, pas de l'exploitation.
+- `{ category: "cafe" }` seul : oui, c'est son premier champ ;
+- `{ category: "cafe", active: true }` : oui, les deux premiers ;
+- `{ active: true }` seul : non, `COLLSCAN` ;
+- `{ price: { $lt: 20 } }` seul : non, `COLLSCAN`.
 
-Développer efficacement, en quatre habitudes : concevoir le modèle à partir des requêtes avant d'écrire une ligne ; encapsuler chaque accès dans une couche qui connaît la forme des documents ; ne jamais lire-puis-écrire une valeur qu'on modifie ; mesurer chaque requête avec `explain` avant de la mettre en production.
+**Question** : la requête `{ active: true, category: "cafe" }`, avec les champs écrits dans l'autre ordre, utilise-t-elle l'index ?
 
-**Ce qu'il faut retenir.** Le NoSQL déplace le schéma, la cohérence et le basculement dans le code client. Le développeur porte une responsabilité que le SGBDR lui épargnait.
-
-## Quels outils de supervision, et comment les choisir ?
-
-Une base répartie tombe rarement d'un coup. Elle se dégrade : une copie prend du retard, un nœud sature, une compaction s'éternise. La supervision sert à voir la dégradation avant qu'elle devienne une panne.
-
-| Niveau | Ce qu'on surveille | Outils |
-|---|---|---|
-| Le moteur lui-même | Latence des lectures et écritures, file d'attente, connexions, taux de succès des requêtes, retard de réplication, taille des index, cache | Ce que chaque moteur expose : `db.serverStatus()` et `mongostat` pour MongoDB, `nodetool` pour Cassandra, `INFO` pour Redis, l'interface web pour HBase |
-| Collecte et tableaux de bord | Les mêmes métriques, dans le temps, avec des seuils d'alerte | Prometheus avec l'exporteur du moteur, puis Grafana ; ou la pile de l'entreprise (Datadog, Elastic, Zabbix) |
-| Le service managé | Les mêmes métriques, déjà collectées | Atlas pour MongoDB, CloudWatch pour DynamoDB : on ne choisit pas, on lit |
-
-Comment choisir : d'abord **ce que l'entreprise a déjà** (une base NoSQL qui n'entre pas dans la supervision existante sera la seule que personne ne regarde) ; ensuite les **trois métriques qui prédisent la panne** pour cette famille (pour MongoDB, le retard de réplication, la mémoire du jeu de travail et le nombre de parcours complets de collection) ; enfin l'**alerte**, parce qu'un tableau de bord que personne ne regarde ne supervise rien.
-
-**Ce qu'il faut retenir.** Brancher la base sur la supervision existante, choisir les trois métriques qui annoncent la dégradation, et poser des alertes dessus.
-
-## Quelle complexité administrative, et quelle courbe d'apprentissage ?
-
-Deux coûts cachés, qu'aucune démonstration ne montre parce qu'ils arrivent après.
-
-**Administrer.** Un SGBDR sur une machine s'administre avec une culture partagée depuis trente ans. Une base NoSQL répartie demande de savoir : ajouter et retirer un nœud sans perte, réparer une copie divergente, sauvegarder un cluster de façon cohérente (une sauvegarde par nœud, prise à des instants différents, n'est pas cohérente), mettre à jour la version nœud par nœud sans arrêt, et diagnostiquer une lenteur qui vient du réseau entre les nœuds. Le service managé vend exactement cela : ne plus avoir à le faire.
-
-**Apprendre.** La courbe n'est pas la syntaxe, apprise en un jour. C'est la **modélisation** : penser par accès et non par entité, accepter la duplication, choisir une clé de répartition dont on ne pourra plus changer. Une équipe met des mois à désapprendre la normalisation, et ses premiers modèles NoSQL sont presque toujours du relationnel déguisé.
-
-| Moteur | Complexité d'administration | Courbe d'apprentissage |
-|---|---|---|
-| Redis | ☑️ Faible seul ; ✅ triviale en managé ; 🚫 réelle en cluster avec persistance | ✅ Douce : des commandes simples, un modèle évident |
-| MongoDB | ☑️ Moyenne : replica set à comprendre, partitionnement à ne pas sous-estimer | ☑️ Moyenne : la syntaxe est accessible, la modélisation demande du temps |
-| Cassandra | 🚫 Élevée : compaction, réparation, ajout de nœuds, plusieurs centres de données | 🚫 Raide : la modélisation par requête est contre-intuitive pour qui vient du SQL |
-| HBase | 🚫 Élevée, et dépendante de Hadoop | 🚫 Raide, avec Hadoop à apprendre en plus |
-
-Légende : ✅ faible · ☑️ à prévoir · 🚫 à budgéter sérieusement.
-
-**Ce qu'il faut retenir.** Le coût principal n'est ni la licence ni le matériel : c'est le temps d'apprentissage de la modélisation et le temps d'exploitation d'un système réparti. Le service managé achète le second, pas le premier.
-
-## Cas d'utilisation dans des entreprises existantes
-
-Quelques cas publiés par les entreprises elles-mêmes, choisis parce qu'ils illustrent chacun un critère de la grille. Ce sont des sources d'entreprises, à lire comme telles : elles racontent un succès, rarement les hésitations.
-
-| Entreprise | Moteur | Ce que le cas illustre |
-|---|---|---|
-| Netflix | Cassandra | Des écritures continues (historique de visionnage, état de lecture) sur plusieurs régions AWS, avec disponibilité prioritaire sur la cohérence : un client qui reprend sa vidéo une seconde trop tôt n'est pas un incident |
-| Discord | Cassandra, puis ScyllaDB (2023) | Des milliers de milliards de messages : le modèle en colonnes larges tient, mais l'exploitation de Cassandra (compactions, latences en queue) a fini par coûter plus que la migration vers un moteur compatible |
-| Twitter (X) | Redis, en cache et en files d'attente | Les fils d'actualité précalculés en mémoire : le cache est la donnée, et il expire |
-| eBay | MongoDB | Le catalogue et les métadonnées de recherche, où les attributs varient par catégorie : le document épouse la variété |
-| Venmo (PayPal) | Migration vers DynamoDB | Un cas de migration détaillé étape par étape par le fournisseur, repris au Jour 2 : chargement, double écriture, bascule |
-
-Ce que ces cas ont en commun : aucune de ces entreprises n'a « remplacé SQL ». Chacune a sorti un accès précis, à un moment où il ne tenait plus, et a gardé du relationnel pour le reste. Et chacune a une équipe dédiée à l'exploitation du moteur choisi.
-
-**Ce qu'il faut retenir.** Les grands cas publiés confirment la règle : un accès, une famille, une équipe qui l'opère. Ils ne disent pas qu'il faut faire pareil à une échelle cent fois plus petite.
-
-## Et les performances ? Quelques benchmarks
-
-Un chiffre de performance sans son protocole ne vaut rien, et les chiffres publiés par les éditeurs sont tous produits avec un protocole qui les avantage. Plutôt que des résultats, retenir **comment on mesure**.
-
-**Le banc de référence** est YCSB (Yahoo! Cloud Serving Benchmark), libre, qui définit des charges types : A (50 % lectures, 50 % mises à jour), B (95 % lectures), C (100 % lectures), D (lectures des données les plus récentes), E (parcours de plages), F (lecture-modification-écriture). Tout moteur NoSQL sérieux a été mesuré dessus, et c'est le vocabulaire commun pour comparer.
-
-**Ce qui fait varier un résultat d'un facteur dix**, à moteur égal : la taille du jeu de données par rapport à la mémoire (tout en RAM ou non), le niveau de garantie demandé (une écriture confirmée par une copie ou par trois), la répartition des clés (uniforme ou concentrée sur quelques valeurs chaudes), le matériel (SSD ou non, réseau), et la version du moteur.
-
-**Le protocole à écrire avant de mesurer**, en cinq lignes : la charge (proportion de lectures, d'écritures, de parcours), le volume et sa répartition, le niveau de garantie exigé (le même pour tous les moteurs comparés), la métrique (débit **et** latence au 99ᵉ centile, pas la moyenne), et la durée (assez longue pour que les compactions et le ramasse-miettes se produisent).
+**Réponse attendue** : oui. L'ordre qui compte est celui des champs **dans l'index**, pas dans le filtre. MongoDB réordonne les égalités du filtre pour les faire correspondre.
 
 > [!WARNING]
-> **Piège : la latence moyenne**
-> Une base qui répond en 2 ms en moyenne et en 800 ms une fois sur cent est une base dont un client sur cent attend presque une seconde. C'est le 99ᵉ centile qu'on voit en production, jamais la moyenne. Un benchmark qui ne le publie pas cache quelque chose.
+> **Piège : indexer chaque champ séparément**
+> Un index sur `category`, un autre sur `active`, un autre sur `price` ne remplacent pas l'index composé : MongoDB n'en utilise en général qu'un seul par requête, puis filtre et trie le reste en lisant les documents. Trois index simples coûtent trois mises à jour par écriture et laissent le `SORT` en place. L'index se conçoit **par requête**, pas par champ.
 
-**Ce qu'il faut retenir.** Ne pas comparer des chiffres, comparer des protocoles. Écrire le vôtre avec YCSB, à garantie égale, et lire le 99ᵉ centile.
+**Ce qu'il faut retenir.** Un index ne change pas le résultat, seulement le chemin. Mesurer avant et après avec `totalDocsExamined` contre `nReturned`. Un index simple trouve ; un index composé, dans l'ordre égalités, tri, plages, trouve et trie. Un index par requête fréquente, jamais un par champ.
 
-## Qu'est-ce que NewSQL ?
+## Atelier 5 : mise en place d'index et observation des requêtes
 
-Le NoSQL a abandonné SQL et les transactions pour pouvoir se répartir. Le NewSQL est la tentative de **garder les deux et de se répartir quand même**.
+### Étape 1 : mesurer sans index
 
-Un moteur NewSQL parle SQL, offre des transactions ACID complètes, et se répartit sur des dizaines de nœuds avec réplication automatique. Il y parvient par des protocoles de consensus (Raft, Paxos) qui font tomber d'accord une majorité de copies avant de confirmer une écriture, et par des horloges synchronisées pour ordonner les transactions entre nœuds. Le prix : une latence d'écriture plus élevée qu'un SGBDR local (il faut le réseau pour le consensus) et une complexité d'exploitation proche de celle d'une base NoSQL.
+```
+db.evenements
+  .find({ client_id: "C042" })
+  .explain("executionStats")
+```
 
-| Moteur | Origine | Particularité |
-|---|---|---|
-| Google Spanner | Google, service cloud | L'article fondateur (2012) ; horloges atomiques et GPS pour ordonner les transactions à l'échelle mondiale |
-| CockroachDB | Cockroach Labs, licence BSL puis propriétaire | Compatible PostgreSQL ; survit à la perte d'un centre de données |
-| TiDB | PingCAP, Apache 2.0 | Compatible MySQL ; sépare le stockage (TiKV) du calcul |
-| YugabyteDB | Yugabyte, Apache 2.0 sur le cœur | Compatible PostgreSQL et Cassandra à la fois |
+Dans le résultat, repérer le plan gagnant, `totalDocsExamined` et `nReturned`.
 
-Où il se place dans la grille : quand l'accès est **relationnel** (jointures, transactions multi-tables) mais que le **volume ou la disponibilité** dépassent une machine. C'est la case que ni le SGBDR classique ni le NoSQL ne remplissent. Le terme lui-même vieillit : on dit plutôt aujourd'hui « SQL distribué ».
+**Résultat attendu** : `COLLSCAN`, 16 documents examinés et 4 retournés.
 
-**Ce qu'il faut retenir.** NewSQL = SQL et ACID sur un cluster, au prix de la latence du consensus. À considérer quand on a besoin des garanties relationnelles et qu'on ne tient plus sur une machine, avant de renoncer aux garanties.
+### Étape 2 : créer l'index fourni
 
-## Atelier : construire la matrice de synthèse
+```
+db.evenements.createIndex({ client_id: 1 }, { name: "idx_client" })
+```
 
-Objectif : produire, en groupe, la grille qui sert à choisir. Elle vaut plus par les désaccords qu'elle provoque en la remplissant que par son contenu final.
+### Étape 3 : refaire exactement la même mesure
 
-### Étape 1 : remplir la matrice
+```
+db.evenements
+  .find({ client_id: "C042" })
+  .explain("executionStats")
+```
 
-Pour chaque case, une note sur trois niveaux (✅ point fort · ☑️ acceptable · 🚫 faiblesse) **et une justification d'une ligne**. Une note sans justification ne compte pas.
+**Résultat attendu** : un `IXSCAN` sous une étape `FETCH`, 4 documents examinés et 4 retournés.
 
-| Critère | Redis | MongoDB | Cassandra | HBase | SGBDR (référence) |
-|---|---|---|---|---|---|
-| Lecture par clé, latence minimale | | | | | |
-| Requêtes riches (filtres sur plusieurs champs, agrégations) | | | | | |
-| Écritures massives et continues | | | | | |
-| Parcours de plages triées | | | | | |
-| Schéma souple, attributs variables | | | | | |
-| Garanties transactionnelles | | | | | |
-| Passage à l'échelle horizontal | | | | | |
-| Disponibilité multi-sites | | | | | |
-| Courbe d'apprentissage | | | | | |
-| Complexité d'exploitation | | | | | |
-| Coût mémoire et matériel | | | | | |
+L'index ne change pas les événements retournés. Il réduit ici le travail nécessaire pour les retrouver : MongoDB examine 4 documents au lieu de 16.
 
-### Étape 2 : appliquer au fil rouge
+> [!IMPORTANT]
+> **Temps d'exécution et travail effectué**
+> Un index vise bien à accélérer les recherches qu'il sert. Sur seulement 16 documents, `executionTimeMillis` peut toutefois rester identique avant et après, voire afficher `0`. Dans ce TP, comparez donc `totalDocsExamined`, qui rend le travail évité visible. Sur un volume important, cette réduction du travail peut se traduire par un temps de recherche plus court.
 
-Pour chacune des quatre données de la boutique, choisir un moteur avec la matrice, et écrire la ligne de la matrice qui a été décisive :
+### Étape 4 : nettoyer
 
-| Donnée | Moteur retenu | Le critère qui a tranché |
-|---|---|---|
-| Catalogue produit | | |
-| Commandes et paiements | | |
-| Sessions et paniers | | |
-| Événements de navigation | | |
+```
+db.evenements.dropIndex("idx_client")
+```
 
-### Étape 3 : chercher le désaccord
+**Question** : l'index a-t-il changé les quatre événements retournés ?
 
-Chaque groupe présente sa case la plus discutée. Le corrigé donne une matrice remplie ; elle est un point de comparaison, pas une vérité : une case où votre note diffère avec une bonne justification est une case où le contexte compte, et c'est ce qu'il faut retenir.
+**Réponse attendue** : non. Il a changé la manière de les retrouver, pas le résultat.
 
-**Ce qu'il faut retenir.** La matrice n'est pas une réponse, c'est une méthode : des critères explicites, une note justifiée par case, puis l'application à chaque donnée séparément.
-
-# Jour 2 · NoSQL et Big Data
-
-Le Jour 1 a répondu à « comment stocker et lire une donnée qui ne rentre plus dans une table ». Cette section répond à « comment traiter des milliards de ces données », et à « comment les répartir sans les perdre ». Elle se termine par trois démonstrations sur les données du fil rouge, dont deux avec Spark.
-
-## Liens entre NoSQL et Big Data
-
-Les deux mots sont nés en même temps, des mêmes articles de Google, et on les confond. Ils ne désignent pas la même chose.
-
-**NoSQL** est une question de **stockage et d'accès** : où vit une donnée, comment on la lit et l'écrit, une par une, vite. C'est l'opérationnel : le site qui sert une page, l'application qui enregistre une commande.
-
-**Big Data** est une question de **traitement** : comment on parcourt des milliards de données pour en tirer un résultat, un compte, un modèle. C'est l'analytique : le rapport de fin de mois, la recommandation calculée la nuit, la détection de fraude.
-
-| | NoSQL (opérationnel) | Big Data (analytique) |
-|---|---|---|
-| Question type | « Quel est le panier de la session S0184 ? » | « Quel produit est le plus abandonné en panier, par canal, sur six mois ? » |
-| Unité de travail | Un document, une clé, une ligne | Toutes les lignes |
-| Temps de réponse | Millisecondes | Minutes à heures |
-| Qui l'appelle | L'application, pour chaque utilisateur | Un traitement planifié ou un analyste |
-
-Le lien : une base NoSQL est souvent la **source** d'un traitement Big Data (on exporte les événements de MongoDB vers Spark) et parfois sa **cible** (le résultat du calcul, « produits recommandés pour C042 », est réécrit dans une base clé-valeur pour être servi en millisecondes). HBase est le cas particulier qui vit des deux côtés : base opérationnelle posée sur le stockage analytique.
-
-**Ce qu'il faut retenir.** NoSQL sert une donnée, Big Data les traite toutes. L'un alimente l'autre dans les deux sens, et l'architecture consiste à décider où passe la frontière.
-
-## L'offre Hadoop pour le stockage et l'analyse
-
-Le Jour 1 a posé les briques (HDFS, YARN, MapReduce, HBase). Voici ce qu'on trouve réellement dans un cluster Hadoop en production, et ce que chaque brique apporte.
-
-| Brique | Rôle | Ce qu'on lui demande |
-|---|---|---|
-| HDFS | Stockage de fichiers réparti et répliqué | Recevoir tous les fichiers bruts : journaux, exports, événements, sans les transformer |
-| YARN | Ordonnanceur de ressources | Donner du CPU et de la mémoire aux traitements, plusieurs à la fois |
-| Hive | SQL sur les fichiers de HDFS | Faire des requêtes analytiques en SQL sur des fichiers, sans base : une table Hive est une description de fichiers |
-| Spark | Moteur de traitement en mémoire | Tout traitement qui n'est pas du SQL simple : nettoyage, agrégation, apprentissage |
-| HBase | Base par clé sur HDFS | L'accès opérationnel aux données du cluster |
-| Kafka (hors Hadoop, mais toujours à côté) | File de messages répartie | Recevoir les événements en flux avant qu'ils touchent le disque |
-| Parquet et ORC | Formats de fichiers en colonnes | Stocker les données transformées de façon compacte et rapide à parcourir par colonne |
-
-Le mot d'ordre du **lac de données** (data lake) : on stocke tout, brut, dans HDFS ou son équivalent cloud (S3, Azure Data Lake, Google Cloud Storage), et on décide plus tard de ce qu'on en fait. Le schéma s'applique à la lecture, par le traitement, pas à l'écriture. C'est exactement l'inverse du relationnel, et c'est ce qui permet de ne rien jeter.
-
-Les distributions (Cloudera, et les services cloud : Amazon EMR, Google Dataproc, Azure HDInsight) empaquettent ces briques. Aujourd'hui, la plupart des nouveaux projets n'installent plus Hadoop : ils prennent le stockage d'objets du cloud à la place de HDFS, et Spark en service managé à la place de YARN. Les concepts restent, les composants changent de nom.
-
-**Ce qu'il faut retenir.** Hadoop est devenu un vocabulaire plus qu'un produit : un stockage de fichiers bon marché et répliqué, un moteur de traitement qui vient à la donnée, et des formats en colonnes entre les deux.
+# Distribuer et exploiter MongoDB
 
 ## La répartition des données d'une base NoSQL
 
@@ -1419,11 +1592,936 @@ En production, chaque shard **est** un replica set. Trois shards à trois copies
 
 **Ce qu'il faut retenir.** Répliquer copie tout partout pour survivre ; partitionner découpe pour grandir. Le premier se règle requête par requête (combien de copies confirment, sur laquelle on lit) ; le second se décide une fois, par le choix de la clé, en regardant les requêtes dominantes.
 
+## Suivre les données et les index dans le temps
+
+Un index créé le premier jour peut être inutile le centième, et une collection qui a doublé change de comportement. Trois commandes pour le voir.
+
+**La taille d'une collection**, données et index :
+
+```
+db.produits.stats()
+```
+
+Les champs à lire : `count` (documents), `size` (octets des documents), `storageSize` (occupé sur disque, compressé), `nindexes`, `totalIndexSize`. Sur le lab, `storageSize` dépasse `size` parce que WiredTiger alloue par blocs ; sur une vraie collection, c'est l'inverse, par la compression.
+
+**L'usage réel de chaque index** depuis le dernier démarrage :
+
+```
+db.produits.aggregate([{ $indexStats: {} }])
+```
+
+Chaque index apparaît avec `accesses.ops`, le nombre de fois où il a servi une requête. Un index à zéro après un mois de production est un index qui coûte à chaque écriture sans rien rendre : à supprimer. C'est la commande qui fait le ménage.
+
+**Le comportement global du serveur**, en continu, depuis un terminal hors du shell :
+
+```
+docker compose exec mongodb mongostat --rowcount 5
+```
+
+Une ligne par seconde : insertions, requêtes, mises à jour, taille du cache utilisé, connexions. C'est ce qu'un outil de supervision collecte, sans la présentation.
+
+Nettoyer l'index de l'exercice avant de continuer :
+
+```
+db.produits.dropIndex("idx_category_active_price")
+```
+
+**Ce qu'il faut retenir.** `stats()` pour la taille, `$indexStats` pour l'usage, `mongostat` pour le rythme. Un index jamais utilisé se supprime.
+
+## Répliquer les données
+
+Cette manipulation est un approfondissement facultatif après la formation. Pendant la séance, la réplication est expliquée avec les slides ; aucune démonstration de replica set n'est prévue. La procédure utilise un environnement séparé du lab principal.
+
+### Étape 1 : trois serveurs, un replica set
+
+Le fichier `exercices/05-replica-set/compose.replica.yaml` décrit trois `mongod` identiques, lancés avec `--replSet rs0`. Depuis ce dossier :
+
+```
+cd exercices/05-replica-set
+```
+
+```
+docker compose -f compose.replica.yaml up -d
+```
+
+Ils tournent, mais ne se connaissent pas encore. L'initialisation se fait une fois, depuis n'importe lequel :
+
+```
+docker compose -f compose.replica.yaml exec rs1 mongosh --quiet --eval 'rs.initiate({ _id: "rs0", members: [ { _id: 0, host: "rs1:27017" }, { _id: 1, host: "rs2:27017" }, { _id: 2, host: "rs3:27017" } ] })'
+```
+
+Attendre une dizaine de secondes : les trois se découvrent, et **votent**.
+
+```
+docker compose -f compose.replica.yaml exec rs1 mongosh --quiet --eval 'rs.status().members.forEach(m => print(m.name + " : " + m.stateStr))'
+```
+
+```text
+rs1:27017 : SECONDARY
+rs2:27017 : SECONDARY
+rs3:27017 : PRIMARY
+```
+
+Le primaire n'est pas forcément `rs1` : l'élection choisit, et d'une exécution à l'autre le résultat change. C'est déjà une leçon : l'application ne doit pas connaître le nom du primaire.
+
+### Étape 2 : écrire sur le bon serveur
+
+**À observer.** Se connecter à `rs1` (un secondaire dans l'exemple ci-dessus) et tenter une écriture. Que se passe-t-il ?
+
+```
+docker compose -f compose.replica.yaml exec rs1 mongosh --quiet --eval 'db.getSiblingDB("formation_nosql").stock.insertOne({ product_id: "P101", quantite: 3 })'
+```
+
+```text
+MongoServerError: not primary
+```
+
+Un secondaire refuse d'écrire. La bonne connexion nomme le **replica set**, pas un serveur : le pilote découvre alors le primaire tout seul, et le suivra s'il change.
+
+```
+docker compose -f compose.replica.yaml exec rs1 mongosh --quiet "mongodb://rs1:27017,rs2:27017,rs3:27017/formation_nosql?replicaSet=rs0" --eval 'print("connecté à " + db.hello().me); print(db.stock.insertOne({ product_id: "P101", quantite: 3 }, { writeConcern: { w: "majority" } }).acknowledged)'
+```
+
+```text
+connecté à rs3:27017
+true
+```
+
+Le shell a été lancé sur `rs1` et s'est connecté à `rs3` : la chaîne de connexion l'a routé vers le primaire. Et `w: "majority"` a attendu qu'au moins deux des trois serveurs aient l'écriture avant de répondre `true`.
+
+### Étape 3 : perdre le primaire
+
+Arrêter le serveur primaire (remplacer `rs3` par celui que votre `rs.status()` a désigné) :
+
+```
+docker compose -f compose.replica.yaml stop rs3
+```
+
+Attendre l'élection d'un nouveau primaire. La commande suivante lance le shell dans `rs1` : si vous venez d'arrêter `rs1`, remplacer uniquement `exec rs1` par `exec rs2`. Conserver les trois adresses de la chaîne de connexion. Si l'élection n'est pas terminée, attendre puis vérifier de nouveau l'état avant de tenter l'écriture.
+
+```
+docker compose -f compose.replica.yaml exec rs1 mongosh --quiet "mongodb://rs1:27017,rs2:27017,rs3:27017/formation_nosql?replicaSet=rs0" --eval 'rs.status().members.forEach(m => print(m.name + " : " + m.stateStr)); print(db.stock.insertOne({ product_id: "P103", quantite: 5 }, { writeConcern: { w: "majority" } }).acknowledged); print(db.stock.countDocuments())'
+```
+
+```text
+rs1:27017 : PRIMARY
+rs2:27017 : SECONDARY
+rs3:27017 : (not reachable/healthy)
+true
+2
+```
+
+Un nouveau primaire, une écriture acceptée avec la majorité (deux sur trois, le troisième étant mort), et les deux documents présents : celui écrit avant la panne a survécu, parce qu'il avait été confirmé par la majorité.
+
+### Étape 4 : le revenant
+
+Redémarrer le serveur réellement arrêté : remplacer `rs3` ci-dessous si vous aviez arrêté un autre serveur.
+
+```
+docker compose -f compose.replica.yaml start rs3
+```
+
+Quelques secondes plus tard, `rs3` est de retour, **secondaire** : il rattrape l'oplog de `rs1` et rejoue l'écriture qu'il a manquée. Il ne redevient pas primaire : rien ne l'y oblige, et une élection pour rien coûterait une interruption.
+
+```text
+rs1:27017 : PRIMARY
+rs2:27017 : SECONDARY
+rs3:27017 : SECONDARY
+```
+
+Démonter, en effaçant les données de la démonstration :
+
+```
+docker compose -f compose.replica.yaml down --volumes
+```
+
+```
+cd ../..
+```
+
+**Ce qu'il faut retenir.** Trois serveurs, un primaire élu, une chaîne de connexion qui nomme le replica set. `w: "majority"` est ce qui fait survivre une écriture à la mort du primaire. La panne dure le temps d'une élection, et l'application ne voit qu'une erreur transitoire, si son pilote sait réessayer.
+
+## Partitionner les données
+
+Le partitionnement (*sharding*) ne se démontre pas sur un poste : il demande au minimum deux shards (chacun un replica set), trois serveurs de configuration et un routeur, soit une dizaine de processus. Ce qui compte se comprend sans le lancer, et tient en trois décisions.
+
+**La clé de partition.** C'est un champ (ou plusieurs) présent dans chaque document, et c'est elle qui décide sur quel shard il vit. Sur les événements du fil rouge, deux candidates :
+
+| Clé | Ce que ça donne | Pour quel accès |
+|---|---|---|
+| `{ client_id: 1 }` (par plage) | Les événements d'un client sont sur un seul shard, triés | Lire le parcours d'un client : une seule machine |
+| `{ event_id: "hashed" }` | Chaque événement va sur un shard au hasard, uniformément | Écrire massivement sans point chaud ; lire un client interroge tous les shards |
+
+Il n'y a pas de bonne réponse absolue : la clé sert l'accès dominant et coûte sur les autres.
+
+**Le moment.** On partitionne quand un replica set ne suffit plus : jeu de travail qui ne tient plus dans le cache d'une machine, débit d'écriture qui sature un primaire. Pas avant. Un replica set bien dimensionné porte des téraoctets et des dizaines de milliers d'opérations par seconde.
+
+**La commande**, pour savoir à quoi elle ressemble :
+
+```
+sh.shardCollection("formation_nosql.evenements", { client_id: 1 })
+```
+
+Elle s'exécute sur le routeur `mongos`, une fois, et n'est pas réversible sans recréer la collection. Après elle, MongoDB découpe les données en morceaux (*chunks*) et un équilibreur les déplace entre shards pour garder la répartition uniforme, en tâche de fond.
+
+> [!IMPORTANT]
+> Ce que le partitionnement change pour le développeur : toute requête qui ne contient pas la clé de partition est envoyée à **tous** les shards. Une application conçue sur un replica set, où toute requête coûte le même prix, découvre après partitionnement que certaines de ses requêtes sont devenues des parcours de cluster. La clé se choisit en listant les requêtes, jamais en regardant le schéma.
+
+**Ce qu'il faut retenir.** Partitionner, c'est choisir une clé qu'on ne changera plus, pour un accès dominant, quand un replica set ne suffit plus. Le reste est mécanique.
+
+## En quoi consiste l'administration d'une base NoSQL au quotidien ?
+
+Quatre gestes reviennent chaque semaine, et un service managé les vend tous les quatre.
+
+**Sauvegarder.** `mongodump` exporte une base en fichiers BSON ; `mongorestore` les recharge. Sur le lab :
+
+```
+docker compose exec mongodb mongodump --db=formation_nosql --out=/tmp/dump
+```
+
+```text
+done dumping formation_nosql.commandes (2 documents)
+done dumping formation_nosql.evenements (16 documents)
+done dumping formation_nosql.produits (8 documents)
+```
+
+Sur un replica set en production, on sauvegarde depuis un secondaire pour ne pas charger le primaire, et on préfère un instantané de disque à `mongodump` au-delà de quelques dizaines de Go. Une sauvegarde qu'on n'a jamais restaurée n'est pas une sauvegarde : tester `mongorestore` fait partie du geste.
+
+**Sécuriser.** Le lab tourne **sans authentification**, sur `localhost` seulement. Ce n'est acceptable que là. La première action sur un vrai serveur : créer un administrateur, activer l'authentification, puis un utilisateur par application avec le rôle minimal (`readWrite` sur sa base, jamais `root`).
+
+```
+db.getUsers()
+```
+
+Sur le lab, la liste est vide. Sur un serveur exposé, une liste vide est une base ouverte à Internet, et les bases MongoDB effacées avec demande de rançon des années 2017 à 2020 étaient exactement cela.
+
+**Superviser.** Les métriques présentées plus haut, en pratique : `mongostat` pour le rythme, `db.serverStatus()` pour l'état complet, `$indexStats` pour les index, le retard de réplication dans `rs.printSecondaryReplicationInfo()`. Et une alerte sur trois d'entre elles : le cache qui déborde, le retard de réplication qui monte, le nombre de `COLLSCAN` qui grimpe.
+
+**Mettre à jour.** Une version majeure par an ; sur un replica set, la mise à jour se fait **serveur par serveur**, secondaires d'abord, puis bascule volontaire (`rs.stepDown()`) et ancien primaire en dernier. Sans interruption pour l'application, si son pilote gère l'élection.
+
+**Ce qu'il faut retenir.** Sauvegarder et tester la restauration, ne jamais tourner sans authentification, alerter sur trois métriques, mettre à jour un nœud à la fois. Ce que le managé achète, c'est ces quatre lignes.
+
+## Quels outils de supervision, et comment les choisir ?
+
+Une base répartie tombe rarement d'un coup. Elle se dégrade : une copie prend du retard, un nœud sature, une compaction s'éternise. La supervision sert à voir la dégradation avant qu'elle devienne une panne.
+
+| Niveau | Ce qu'on surveille | Outils |
+|---|---|---|
+| Le moteur lui-même | Latence des lectures et écritures, file d'attente, connexions, taux de succès des requêtes, retard de réplication, taille des index, cache | Ce que chaque moteur expose : `db.serverStatus()` et `mongostat` pour MongoDB, `nodetool` pour Cassandra, `INFO` pour Redis, l'interface web pour HBase |
+| Collecte et tableaux de bord | Les mêmes métriques, dans le temps, avec des seuils d'alerte | Prometheus avec l'exporteur du moteur, puis Grafana ; ou la pile de l'entreprise (Datadog, Elastic, Zabbix) |
+| Le service managé | Les mêmes métriques, déjà collectées | Atlas pour MongoDB, CloudWatch pour DynamoDB : on ne choisit pas, on lit |
+
+Comment choisir : d'abord **ce que l'entreprise a déjà** (une base NoSQL qui n'entre pas dans la supervision existante sera la seule que personne ne regarde) ; ensuite les **trois métriques qui prédisent la panne** pour cette famille (pour MongoDB, le retard de réplication, la mémoire du jeu de travail et le nombre de parcours complets de collection) ; enfin l'**alerte**, parce qu'un tableau de bord que personne ne regarde ne supervise rien.
+
+**Ce qu'il faut retenir.** Brancher la base sur la supervision existante, choisir les trois métriques qui annoncent la dégradation, et poser des alertes dessus.
+
+## Quelle complexité administrative, et quelle courbe d'apprentissage ?
+
+Deux coûts cachés, qu'aucune démonstration ne montre parce qu'ils arrivent après.
+
+**Administrer.** Un SGBDR sur une machine s'administre avec une culture partagée depuis trente ans. Une base NoSQL répartie demande de savoir : ajouter et retirer un nœud sans perte, réparer une copie divergente, sauvegarder un cluster de façon cohérente (une sauvegarde par nœud, prise à des instants différents, n'est pas cohérente), mettre à jour la version nœud par nœud sans arrêt, et diagnostiquer une lenteur qui vient du réseau entre les nœuds. Le service managé vend exactement cela : ne plus avoir à le faire.
+
+**Apprendre.** La courbe n'est pas la syntaxe, apprise en un jour. C'est la **modélisation** : penser par accès et non par entité, accepter la duplication, choisir une clé de répartition dont on ne pourra plus changer. Une équipe met des mois à désapprendre la normalisation, et ses premiers modèles NoSQL sont presque toujours du relationnel déguisé.
+
+| Moteur | Complexité d'administration | Courbe d'apprentissage |
+|---|---|---|
+| Redis | ☑️ Faible seul ; ✅ triviale en managé ; 🚫 réelle en cluster avec persistance | ✅ Douce : des commandes simples, un modèle évident |
+| MongoDB | ☑️ Moyenne : replica set à comprendre, partitionnement à ne pas sous-estimer | ☑️ Moyenne : la syntaxe est accessible, la modélisation demande du temps |
+| Cassandra | 🚫 Élevée : compaction, réparation, ajout de nœuds, plusieurs centres de données | 🚫 Raide : la modélisation par requête est contre-intuitive pour qui vient du SQL |
+| HBase | 🚫 Élevée, et dépendante de Hadoop | 🚫 Raide, avec Hadoop à apprendre en plus |
+
+Légende : ✅ faible · ☑️ à prévoir · 🚫 à budgéter sérieusement.
+
+**Ce qu'il faut retenir.** Le coût principal n'est ni la licence ni le matériel : c'est le temps d'apprentissage de la modélisation et le temps d'exploitation d'un système réparti. Le service managé achète le second, pas le premier.
+
+# Big Data et services managés
+
+Les premiers chapitres ont répondu à « comment stocker et lire une donnée qui ne rentre plus dans une table ». Cette section répond à « comment traiter des milliards de ces données », et à « comment les répartir sans les perdre ». Elle se termine par trois démonstrations sur les données du fil rouge, dont deux avec Spark.
+
+## Liens entre NoSQL et Big Data
+
+Les deux mots sont nés en même temps, des mêmes articles de Google, et on les confond. Ils ne désignent pas la même chose.
+
+**NoSQL** est une question de **stockage et d'accès** : où vit une donnée, comment on la lit et l'écrit, une par une, vite. C'est l'opérationnel : le site qui sert une page, l'application qui enregistre une commande.
+
+**Big Data** est une question de **traitement** : comment on parcourt des milliards de données pour en tirer un résultat, un compte, un modèle. C'est l'analytique : le rapport de fin de mois, la recommandation calculée la nuit, la détection de fraude.
+
+| | NoSQL (opérationnel) | Big Data (analytique) |
+|---|---|---|
+| Question type | « Quel est le panier de la session S0184 ? » | « Quel produit est le plus abandonné en panier, par canal, sur six mois ? » |
+| Unité de travail | Un document, une clé, une ligne | Toutes les lignes |
+| Temps de réponse | Millisecondes | Minutes à heures |
+| Qui l'appelle | L'application, pour chaque utilisateur | Un traitement planifié ou un analyste |
+
+Le lien : une base NoSQL est souvent la **source** d'un traitement Big Data (on exporte les événements de MongoDB vers Spark) et parfois sa **cible** (le résultat du calcul, « produits recommandés pour C042 », est réécrit dans une base clé-valeur pour être servi en millisecondes). HBase est le cas particulier qui vit des deux côtés : base opérationnelle posée sur le stockage analytique.
+
+**Ce qu'il faut retenir.** NoSQL sert une donnée, Big Data les traite toutes. L'un alimente l'autre dans les deux sens, et l'architecture consiste à décider où passe la frontière.
+
+## Démonstration : manipuler des données avec HBase
+
+Objectif : constater sur la table `events_by_client` ce que le modèle en colonnes larges sait faire vite (lire une ligne, parcourir une plage) et ce qu'il ne sait pas faire (chercher par une valeur).
+
+> [!NOTE]
+> HBase est exécuté par le formateur en partage d'écran : son image Docker est lourde et son démarrage prend une à deux minutes. Les commandes sont données ici pour rejouer l'atelier seul après la formation ; elles fonctionnent telles quelles sur le lab.
+
+### Étape 1 : démarrer HBase et charger la table
+
+```
+docker compose --profile bigdata up -d --wait hbase
+```
+
+Attendre l'état `healthy`, qui n'arrive qu'une fois le serveur réellement prêt. Puis charger les seize événements avec le script du lab :
+
+```
+docker compose exec -T hbase hbase shell -n /lab/demos/hbase-load.hbase
+```
+
+Le script crée la table avec deux familles de colonnes, `evt` et `payload`, et fait un `put` par cellule : quatre à cinq lignes de script par événement. C'est le prix du modèle, chaque cellule s'écrit séparément.
+
+### Étape 2 : lire une ligne par sa clé
+
+Ouvrir le shell :
+
+```
+docker compose exec hbase hbase shell
+```
+
+**À observer.** Combien de cellules va retourner la lecture du passage en caisse du client C117 ? (Indice : compter les `put` de cette ligne dans le script.)
+
+```
+get 'events_by_client', 'C117#20260912#101529#E000187'
+```
+
+```text
+COLUMN  CELL
+ evt:channel timestamp=…, value=web
+ evt:product timestamp=…, value=P101
+ evt:session timestamp=…, value=S0185
+ evt:type timestamp=…, value=checkout_started
+ payload:phone timestamp=…, value=06 00 00 00 01
+1 row(s)
+```
+
+Cinq cellules, chacune avec son horodatage. La colonne `payload:phone` n'existe que sur cette ligne : aucune autre ligne ne « porte une valeur vide » pour elle, elle n'y est simplement pas.
+
+### Étape 3 : parcourir tous les événements d'un client
+
+C'est la requête pour laquelle la clé a été conçue. Une plage de `C042#` (inclus) à `C043#` (exclu) :
+
+```
+scan 'events_by_client', {STARTROW => 'C042#', STOPROW => 'C043#', COLUMNS => ['evt:type', 'evt:product']}
+```
+
+```text
+ROW  COLUMN+CELL
+ C042#20260912#095810#E000181 column=evt:product, …, value=P101
+ C042#20260912#095810#E000181 column=evt:type, …, value=product_viewed
+ C042#20260912#100042#E000182 column=evt:product, …, value=P103
+ C042#20260912#100042#E000182 column=evt:type, …, value=product_viewed
+ C042#20260912#100215#E000183 column=evt:product, …, value=P103
+ C042#20260912#100215#E000183 column=evt:type, …, value=cart_item_added
+ C042#20260912#100321#E000184 column=evt:product, …, value=P103
+ C042#20260912#100321#E000184 column=evt:type, …, value=cart_abandoned
+4 row(s)
+```
+
+Quatre lignes, dans l'ordre chronologique, sans tri demandé : l'ordre est celui des clés. Le parcours s'est arrêté à la première clé qui dépasse `C043#`, il n'a pas lu le reste de la table.
+
+### Étape 4 : la requête que la clé ne sert pas
+
+« Tous les événements sur le produit P103. » Aucune clé ne commence par le produit. HBase peut le faire, en lisant **toute la table** et en filtrant :
+
+```
+scan 'events_by_client', {FILTER => "SingleColumnValueFilter('evt', 'product', =, 'binary:P103')", COLUMNS => ['evt:type', 'evt:product']}
+```
+
+```text
+ROW  COLUMN+CELL
+ C042#20260912#100042#E000182 column=evt:product, …, value=P103
+ C042#20260912#100042#E000182 column=evt:type, …, value=product_viewed
+ C042#20260912#100215#E000183 column=evt:product, …, value=P103
+ C042#20260912#100215#E000183 column=evt:type, …, value=cart_item_added
+ C042#20260912#100321#E000184 column=evt:product, …, value=P103
+ C042#20260912#100321#E000184 column=evt:type, …, value=cart_abandoned
+3 row(s)
+```
+
+> [!WARNING]
+> **Piège : le filtre ne voit que les colonnes demandées**
+> Si `COLUMNS` ne liste que `evt:type`, la colonne `evt:product` n'est jamais lue, le filtre n'a rien à comparer, et il laisse passer **les seize lignes** sans aucune erreur. Un filtre sur une valeur doit toujours inclure sa colonne dans le `scan`. C'est le genre de résultat silencieusement faux qu'on ne remarque que si l'on avait prédit le nombre de lignes attendu.
+
+Sur seize lignes, c'est instantané. Sur seize milliards, c'est un parcours complet du cluster. La réponse n'est pas un index, c'est une seconde table, `events_by_product`, alimentée en même temps que la première.
+
+```
+count 'events_by_client'
+```
+
+```
+exit
+```
+
+**Ce qu'il faut retenir.** Un `get` par clé et un `scan` par plage sont les deux seuls accès rapides. Tout le reste est un parcours complet, et la modélisation consiste à ne jamais en avoir besoin.
+
+## Traiter les données avec Spark
+
+Spark est le moteur de traitement du Big Data d'aujourd'hui. Trois idées suffisent à lire un programme Spark, et elles se voient toutes dans la démonstration.
+
+**Un DataFrame est une description, pas des données.** `spark.read.json(...)` ne lit rien. `filter(...)`, `withColumn(...)`, `groupBy(...)` ne calculent rien. Chacune ajoute une étape à un **plan**. Ce sont des **transformations**, et elles sont **paresseuses** : Spark accumule, et attend.
+
+**Une action déclenche le calcul.** `show()`, `count()`, `write(...)` sont des **actions** : Spark prend le plan accumulé, l'optimise (il réordonne, fusionne, élimine ce qui ne sert pas au résultat demandé), le découpe en tâches et les distribue. C'est pourquoi `explain()` peut afficher le plan **avant** que quoi que ce soit ait tourné.
+
+**Le calcul se répartit par partition.** Chaque fichier d'entrée est découpé en morceaux ; chaque morceau est traité par une tâche, sur la machine qui l'a. Les étapes qui peuvent se faire morceau par morceau (filtrer, transformer une colonne) s'enchaînent sans échange réseau. Les étapes qui doivent rassembler (grouper, trier, joindre) provoquent un **échange** (*shuffle*) : les données sont redistribuées entre machines par clé. C'est l'étape chère, et c'est celle qu'on cherche à réduire.
+
+```mermaid
+graph LR
+    L["read.json<br/>transformation"] --> F["filter<br/>transformation"]
+    F --> W["withColumn<br/>transformation"]
+    W --> G["groupBy.count<br/>transformation<br/>(provoque un shuffle)"]
+    G --> S["show<br/>ACTION : tout s'exécute"]
+    style S fill:#e76f51,color:#fff
+    style G fill:#e9c46a
+```
+
+Lire le plan que Spark affiche pour l'agrégation de la démonstration, de bas en haut :
+
+```text
+(1) Scan json          lecture du fichier, seules 3 colonnes sont lues
+(2) HashAggregate      compte partiel, dans chaque partition, sans réseau
+(3) Exchange           shuffle : les comptes partiels sont regroupés par clé
+(4) HashAggregate      compte final par clé
+(5) Exchange           second shuffle, pour le tri
+(6) Sort               tri demandé par orderBy
+```
+
+Deux détails y disent l'essentiel de Spark. `ReadSchema: struct<channel,event_type,product_id>` : le fichier a neuf champs, Spark n'en lit que trois, parce que le plan sait que les autres ne servent pas. Et le compte se fait **deux fois**, partiel avant l'échange, final après : la moitié du travail est faite sans réseau.
+
+> [!NOTE]
+> **Question : MapReduce faisait déjà ça, pourquoi Spark l'a remplacé ?**
+> MapReduce écrit sur disque entre chaque étape. Un calcul en dix étapes lit et écrit dix fois. Spark garde les données intermédiaires en mémoire et optimise la chaîne entière avant de la lancer. Sur un calcul itératif comme PageRank, l'écart est d'un facteur dix à cent. Et Spark expose une API de DataFrame, proche de SQL et de pandas, là où MapReduce demandait d'écrire les fonctions *map* et *reduce* à la main.
+
+**Ce qu'il faut retenir.** Transformations paresseuses, action qui déclenche, calcul par partition avec des échanges à minimiser. Lire `explain()` avant de lancer dit ce que ça va coûter.
+
+## Démonstration : nettoyer un gros volume selon un motif imposé
+
+Le cas : les numéros de téléphone saisis au passage en caisse arrivent sous toutes les formes (`06 00 00 00 01`, `+33 6 00 00 00 02`, `invalide`). Il faut les ramener au format international `+33XXXXXXXXX`, et rejeter ce qui ne peut pas l'être. Sur seize événements c'est un exercice ; sur cent millions c'est un traitement Spark, et il est écrit exactement pareil.
+
+Le script est `demos/spark-demo.py`. Le lancer (le formateur le fait en partage d'écran ; la commande fonctionne telle quelle sur le lab, l'image Spark fait plus d'un Go) :
+
+```
+docker compose --profile bigdata run --rm spark
+```
+
+Le cœur du nettoyage, dans le script :
+
+```python
+phones = (
+    events.filter(F.col("event_type") == "checkout_started")
+    .withColumn("phone_raw", F.col("payload.phone"))
+    .withColumn("digits", F.regexp_replace("phone_raw", r"\D", ""))
+    .withColumn(
+        "phone_normalized",
+        F.when(F.col("digits").rlike(r"^0[67][0-9]{8}$"),
+               F.concat(F.lit("+33"), F.substring("digits", 2, 9)))
+         .when(F.col("digits").rlike(r"^33[67][0-9]{8}$"),
+               F.concat(F.lit("+"), F.col("digits")))
+         .otherwise(F.lit(None).cast("string")),
+    )
+)
+```
+
+Lire ce qu'il fait, colonne par colonne : garder les passages en caisse ; extraire le téléphone du sous-objet `payload` ; ne garder que les chiffres ; puis, si ça ressemble à un mobile français à dix chiffres, préfixer `+33` et retirer le zéro ; si ça commence déjà par `33`, préfixer `+` ; sinon, `null`. Aucune boucle, aucun `if` sur une ligne : chaque étape décrit une **colonne entière**, et Spark l'applique à toutes les lignes, sur toutes les machines.
+
+**À observer.** Avant de regarder la sortie : sur les trois passages en caisse du fil rouge, combien de numéros seront normalisés, et lequel sera rejeté ?
+
+```text
++--------+-----------------+----------------+
+|event_id|phone_raw        |phone_normalized|
++--------+-----------------+----------------+
+|E000187 |06 00 00 00 01   |+33600000001    |
+|E000191 |+33 6 00 00 00 02|+33600000002    |
+|E000195 |invalide         |NULL            |
++--------+-----------------+----------------+
+```
+
+Deux normalisés, un rejeté. La ligne rejetée n'est pas perdue : elle est marquée `NULL`, et un second traitement peut la compter, l'isoler, ou la renvoyer à la saisie.
+
+**Ce qu'il faut retenir.** Un nettoyage Spark se lit comme une suite de colonnes calculées, avec des expressions régulières et des conditions. La même écriture vaut pour seize lignes ou cent millions.
+
+## Démonstration : traiter un gros volume avec Spark au-dessus d'une base NoSQL
+
+La même exécution continue avec l'agrégation : combien d'événements par produit, par type et par canal. C'est la question analytique type, celle qu'on ne pose pas à la base opérationnelle parce qu'elle parcourt tout.
+
+```python
+indicators = (
+    events.groupBy("product_id", "event_type", "channel")
+    .count()
+    .orderBy("product_id", "event_type", "channel")
+)
+indicators.explain(mode="formatted")   # affiche le plan, ne calcule rien
+indicators.show(50, truncate=False)    # action : le calcul a lieu ici
+```
+
+L'option facultative `--pause` permet d'examiner le plan étape par étape après la formation. Pendant la séance, le script est lancé sans cette option : le formateur commente le nettoyage et le comptage. L'analyse du plan est un approfondissement facultatif.
+
+Le résultat :
+
+```text
++----------+------------------+-------+-----+
+|product_id|event_type        |channel|count|
++----------+------------------+-------+-----+
+|P101      |cart_item_added   |web    |1    |
+|P101      |checkout_started  |web    |1    |
+|P101      |product_viewed    |mobile |1    |
+|P101      |product_viewed    |web    |1    |
+|P101      |purchase_completed|web    |1    |
+|P103      |cart_abandoned    |mobile |1    |
+…
+|P107      |product_viewed    |web    |1    |
++----------+------------------+-------+-----+
+
+Téléphones normalisés : 2 ; téléphones rejetés : 1
+```
+
+Seize lignes, un compte de 1 partout : le jeu de données est trop petit pour que les comptes montent, et c'est voulu. Ce qu'on regarde n'est pas le chiffre, c'est le **chemin** : un fichier JSON lu sans schéma déclaré, une agrégation sur trois clés, un plan optimisé, un résultat trié. Avec `spark.read.format("mongodb")` à la place de `read.json`, le programme lirait la collection `evenements` du lab sans autre changement.
+
+> [!NOTE]
+> **Question : pourquoi ne pas faire cette agrégation dans MongoDB, qui sait le faire ?**
+> Sur seize documents, MongoDB le fait très bien, et plus simplement. La frontière passe au volume et à l'usage : une agrégation qui parcourt toute une collection de production, tous les soirs, pendant vingt minutes, ralentit la base pour les utilisateurs. Spark la fait sur une copie (l'export du lac), sur d'autres machines, sans toucher l'opérationnel. C'est exactement le partage NoSQL / Big Data de l'ouverture de section.
+
+**Ce qu'il faut retenir.** Le traitement analytique se fait à côté de la base opérationnelle, sur ses données exportées, avec un moteur qui décrit le calcul avant de le lancer. La base sert les utilisateurs ; Spark sert les analystes.
+
+## Les offres NoSQL pour le Big Data dans le Cloud
+
+Chaque fournisseur propose les mêmes familles, sous ses noms. Le tableau sert à traduire, pas à comparer : les services ne sont pas équivalents dans le détail.
+
+| Famille | Amazon Web Services | Google Cloud | Microsoft Azure | OVHcloud |
+|---|---|---|---|---|
+| Clé-valeur et document managé | DynamoDB | Firestore | Cosmos DB (plusieurs API, dont MongoDB) | Managed MongoDB (en partenariat avec MongoDB) |
+| Colonnes larges | Keyspaces (compatible Cassandra) | Bigtable | Cosmos DB, API Cassandra | Pas d'offre dédiée |
+| MongoDB en service | DocumentDB (compatible, pas MongoDB), ou Atlas sur AWS | Atlas sur GCP | Cosmos DB API MongoDB, ou Atlas sur Azure | Managed MongoDB |
+| Cache mémoire | ElastiCache (Redis, Valkey) | Memorystore | Azure Cache for Redis | Pas d'offre dédiée |
+| Stockage d'objets (le HDFS du cloud) | S3 | Cloud Storage | Data Lake Storage | Object Storage |
+| Spark managé | EMR, Glue | Dataproc | HDInsight, Synapse, Databricks | Data Processing (Spark) |
+
+Ce que « managé » veut dire, et ce qu'il ne veut pas dire :
+
+- **Le fournisseur prend** : les serveurs, les disques, la réplication, les mises à jour, les sauvegardes, la supervision de base, le passage à l'échelle.
+- **Il ne prend pas** : la modélisation, le choix de la clé de partition, la validation des données, le code client, la maîtrise des coûts. Une clé mal choisie sur DynamoDB coûte de l'argent au lieu de coûter de la latence.
+- **Le prix se paie à l'usage** : par requête, par Go stocké, par Go transféré. Il faut savoir ce que l'application fait pour prévoir la facture.
+
+> [!NOTE]
+> **Question : Atlas ou Cosmos DB « API MongoDB », c'est pareil ?**
+> Non. Atlas est MongoDB, opéré par MongoDB Inc. sur le cloud de votre choix. Cosmos DB API MongoDB et Amazon DocumentDB sont des moteurs différents qui **parlent le protocole** MongoDB : la plupart des requêtes fonctionnent, certaines fonctions manquent ou se comportent autrement. Pour une application existante, le tester, ne pas le supposer.
+
+**Ce qu'il faut retenir.** Le cloud vend l'exploitation, pas la conception. Traduire les noms, puis relire ce qui reste à la charge de l'équipe.
+
+## Démonstration : visite guidée de l'offre NoSQL d'un acteur majeur
+
+La visite se fait sur la documentation d'Amazon DynamoDB, sans compte ni console : ce qu'il faut comprendre s'y lit, et rien de ce qui suit ne demande de cliquer sur « créer ». Suivre avec le formateur, ou refaire seul avec les liens.
+
+### Ce que DynamoDB prend en charge
+
+DynamoDB est un service clé-valeur et document. On crée une **table**, on lui donne une **clé de partition** et, en option, une **clé de tri**. On n'installe rien, on ne choisit ni le nombre de serveurs ni leur taille. La documentation le dit en une phrase : les données sont stockées dans des partitions sur SSD, **répliquées automatiquement sur plusieurs zones de disponibilité** d'une région, et la gestion des partitions est entièrement prise en charge. Les mécanismes présentés dans ce chapitre (réplication, partitionnement, clé) existent ; on ne les voit plus.
+
+### La clé, encore
+
+Pour le fil rouge, une table `events_by_client` aurait `client_id` en clé de partition et `occurred_at` en clé de tri. C'est exactement la clé de HBase et de Cassandra : lire les événements d'un client est une requête sur une partition, triée. Chercher par produit demande un **index secondaire global**, c'est-à-dire une seconde table maintenue par le service, facturée en plus. Le modèle n'a pas changé ; seule l'exploitation a disparu.
+
+### La capacité, ou comment on paie
+
+Deux modes, documentés côte à côte :
+
+| Mode | Fonctionnement | Quand |
+|---|---|---|
+| À la demande (*on-demand*) | On ne déclare rien ; on paie chaque lecture et chaque écriture. Le service absorbe les pics. C'est le mode par défaut recommandé par AWS | Charge imprévisible ou nouvelle ; le plus simple |
+| Provisionné (*provisioned*) | On déclare un nombre de lectures et d'écritures par seconde ; on paie cette capacité à l'heure, consommée ou non. Au-delà, les requêtes sont ralenties ou refusées | Charge stable et connue ; moins cher à l'usage régulier |
+
+Le point à retenir pour une équipe : en mode provisionné, un pic de trafic non prévu produit des **erreurs**, pas de la latence. C'est un comportement qu'aucune base auto-hébergée n'a, et qu'il faut concevoir dans l'application (attente et nouvel essai).
+
+### La protection des données
+
+Trois mécanismes distincts, à ne pas confondre :
+
+- **La réplication dans la région**, automatique et invisible, protège d'une panne de matériel ou d'une zone.
+- **Les tables globales** répliquent la table dans d'autres régions, avec écriture possible partout et résolution du dernier écrit gagnant ; c'est une option, facturée.
+- **La restauration à un instant** (*point-in-time recovery*) garde un historique continu jusqu'à 35 jours et permet de recréer la table telle qu'elle était à n'importe quelle seconde. C'est la seule des trois qui protège d'une **erreur humaine** : la réplication copie fidèlement un `DELETE` malheureux.
+
+### La supervision et le coût
+
+Les métriques sont dans CloudWatch, sans rien installer : unités consommées, requêtes ralenties, latence, erreurs. Les regarder, c'est à l'équipe. Le coût suit quatre dimensions : requêtes (ou capacité provisionnée), stockage, transfert sortant, options (index globaux, tables globales, restauration). Sans chiffres ici, ils changent ; la structure, elle, reste.
+
+**Ce qu'il faut retenir.** Un service managé vend l'exploitation d'un modèle que vous devez toujours comprendre : la clé décide de tout, la capacité se paie ou se refuse, et seule la restauration protège d'une erreur.
+
+# Migration
+
+## Comment aborder la migration ?
+
+Une migration vers le NoSQL n'est presque jamais « on remplace la base ». C'est « on sort un usage de la base relationnelle parce qu'il ne s'y porte plus ». Trois étapes, dans cet ordre, et la première est celle qu'on saute le plus souvent.
+
+**Identifier l'accès qui ne va plus.** Une table qui grossit sans fin (événements, journaux), une table à colonnes vides (attributs variables), un cache reconstruit à chaque requête (sessions), une requête de parcours de liens qui fait dix jointures. C'est **cet accès-là** qui migre, pas le système.
+
+**Remodeler pour l'accès, pas transposer le schéma.** Copier les tables en collections du même nom est la première erreur : on obtient du relationnel sans jointures, le pire des deux mondes. Il faut partir des lectures (« qu'est-ce qui est lu ensemble ? ») et écrire le nouveau modèle à partir d'elles, quitte à dupliquer.
+
+**Faire coexister, puis basculer.** Jamais de bascule en une nuit. La démarche décrite par les cas publiés, dont celui de Venmo vers DynamoDB conservé dans les approfondissements :
+
+1. **Chargement initial** : copier l'historique dans le nouveau modèle, par un traitement de masse, pendant que l'ancien système continue de vivre.
+2. **Double écriture** : l'application écrit dans les deux bases, l'ancienne faisant toujours foi. Les outils de capture de changements (le journal de la base source relu en continu) évitent de modifier le code pour cela.
+3. **Réconciliation** : comparer les deux bases, chaque nuit, et corriger le nouveau modèle jusqu'à ce que l'écart soit nul.
+4. **Bascule progressive des lectures** : une fonctionnalité à la fois, un pourcentage d'utilisateurs à la fois, en mesurant.
+5. **Bascule des écritures, puis arrêt de l'ancienne base**, seulement quand plus rien ne la lit. Tant qu'elle reçoit les écritures, le retour arrière est possible ; après, il ne l'est plus.
+
+```mermaid
+graph LR
+    A["1 Chargement initial"] --> B["2 Double écriture"]
+    B --> C["3 Réconciliation"]
+    C --> D["4 Bascule des lectures"]
+    D --> E["5 Bascule des écritures"]
+    C -.->|écart non nul| B
+    style A fill:#264653,color:#fff
+    style E fill:#e76f51,color:#fff
+```
+
+> [!IMPORTANT]
+> Ce qui ne migre pas avec les données : les **garanties**. Une application qui comptait sur une transaction pour tenir deux tables cohérentes doit être réécrite pour vivre avec des écritures atomiques par document, ou avec une incohérence temporaire. C'est ce point qui coûte, pas la copie des octets.
+
+**Ce qu'il faut retenir.** On migre un accès, on le remodèle pour la nouvelle famille, on fait coexister avant de basculer. La partie difficile est de réécrire ce qui reposait sur les garanties du relationnel.
+
+## Les impacts sur le développement client
+
+Le code qui parle à une base NoSQL ne ressemble pas au code SQL, et pas seulement par la syntaxe.
+
+**Plus de langage commun.** Chaque moteur a son API et son pilote. Le code qui interroge MongoDB ne se porte pas sur Cassandra. Une équipe qui connaît trois SGBDR connaît SQL ; une équipe qui connaît trois bases NoSQL connaît trois choses. Le fil rouge en MongoDB, depuis Python :
+
+```python
+from pymongo import MongoClient
+
+client = MongoClient("mongodb://localhost:27017")
+produits = client.formation_nosql.produits
+
+noirs = produits.find({"attributes.color": "noir"}, {"_id": 0, "name": 1})
+for p in noirs:
+    print(p["name"])
+
+produits.update_one({"product_id": "P101"}, {"$inc": {"stock": -1}})
+```
+
+La requête est un objet du langage (un dictionnaire Python, un objet JSON), pas une chaîne SQL : pas d'injection par concaténation, mais pas d'optimiseur qui réécrit la requête non plus.
+
+**Le schéma vit dans le code.** Puisque la base ne le porte plus, c'est l'application qui sait qu'un produit a un `price` numérique. Deux versions de l'application qui écrivent deux formes différentes produisent une collection à deux formes, et c'est le lecteur qui doit gérer les deux. La pratique : un champ de version dans chaque document, et une couche de lecture qui sait migrer à la volée.
+
+**Les écritures se pensent atomiques ou conditionnelles.** Le réflexe lire-modifier-écrire, vu dans la section précédente, est le bug le plus fréquent des équipes qui arrivent du relationnel. Tout ce qui était une transaction devient une opération atomique sur un document, ou un filtre conditionnel, ou, en dernier recours, une transaction multi-documents dont il faut connaître le coût.
+
+**Le pilote est un composant à part entière.** Il gère le pool de connexions, la découverte des nœuds, le basculement quand un serveur tombe, les tentatives. Le configurer (délais, nombre de tentatives, sur quelle copie lire) fait partie du développement, pas de l'exploitation.
+
+Développer efficacement, en quatre habitudes : concevoir le modèle à partir des requêtes avant d'écrire une ligne ; encapsuler chaque accès dans une couche qui connaît la forme des documents ; ne jamais lire-puis-écrire une valeur qu'on modifie ; mesurer chaque requête avec `explain` avant de la mettre en production.
+
+**Ce qu'il faut retenir.** Le NoSQL déplace le schéma, la cohérence et le basculement dans le code client. Le développeur porte une responsabilité que le SGBDR lui épargnait.
+
+# Checklist finale
+
+Cette liste porte uniquement sur le parcours animé. Les exercices complémentaires ne sont pas des acquis exigés en fin de séance.
+
+- [ ] Dire pourquoi le format JSON ne suffit pas à justifier un changement de base
+- [ ] Reconnaître les quatre familles NoSQL à partir des exemples présentés
+- [ ] Expliquer pourquoi une copie de donnée doit être mise à jour
+- [ ] Distinguer les informations imbriquées et conservées séparément
+- [ ] Rejouer les cinq ateliers MongoDB avec leurs étapes
+- [ ] Contrôler le résultat d'une modification en relisant le document
+- [ ] Comparer les documents examinés avant et après création de l'index, sans en déduire un gain de temps garanti sur seize documents
+- [ ] Distinguer réplication et partitionnement par leur objectif
+- [ ] Distinguer HBase, qui retrouve les événements d'un client, et Spark, qui traite le fichier
+- [ ] Identifier les responsabilités qui restent à l'équipe avec un service managé
+- [ ] Expliquer pourquoi il faut vérifier le fonctionnement avant de basculer vers une nouvelle base
+
+# Approfondissements
+
+> [!NOTE]
+> **Pour aller plus loin après la formation**
+> Les sections suivantes conservent les sujets du programme initial qui ne font pas partie du parcours animé. Elles peuvent être consultées indépendamment après la séance.
+
+## L'écosystème Hadoop
+
+Hadoop n'est pas une base de données. C'est la réimplémentation libre des trois articles de Google : un système de fichiers réparti, un ordonnanceur de ressources, un modèle de traitement. Tout le reste s'est construit dessus.
+
+```mermaid
+graph TD
+    subgraph Stockage
+        HDFS["HDFS : fichiers répartis, répliqués 3 fois"]
+    end
+    subgraph Ressources
+        YARN["YARN : distribue CPU et mémoire aux traitements"]
+    end
+    subgraph Traitement
+        MR["MapReduce : traitement par lots, historique"]
+        SPARK["Spark : traitement en mémoire, remplace MapReduce"]
+        HIVE["Hive : SQL sur les fichiers HDFS"]
+    end
+    subgraph Base
+        HBASE["HBase : accès par clé, au-dessus de HDFS"]
+    end
+    HDFS --> HBASE
+    HDFS --> MR
+    HDFS --> SPARK
+    HDFS --> HIVE
+    YARN --> MR
+    YARN --> SPARK
+    style HDFS fill:#264653,color:#fff
+    style HBASE fill:#2a9d8f,color:#fff
+    style SPARK fill:#e76f51,color:#fff
+```
+
+**HDFS** découpe chaque fichier en blocs (128 Mo par défaut), copie chaque bloc sur trois machines, et sait quel bloc est où. Un disque qui meurt ne perd rien. Il ne sait faire que écrire un fichier en entier et le relire en entier : pas de modification en place, pas d'accès à une ligne.
+
+**MapReduce** est le modèle de traitement d'origine : une fonction *map* appliquée à chaque bloc en parallèle, sur la machine qui le porte, puis une fonction *reduce* qui rassemble. C'est lent (tout passe par le disque entre les deux) et il a été remplacé par Spark pour presque tout, mais l'idée reste : **amener le calcul à la donnée**, pas l'inverse.
+
+**HBase** ajoute ce que HDFS ne sait pas faire : lire et écrire une ligne, par sa clé, en quelques millisecondes, tout en stockant sur HDFS. C'est la base opérationnelle du cluster.
+
+Les différences avec un SGBDR, en trois lignes : Hadoop lit des fichiers entiers là où le SGBDR lit des lignes ; il répartit sur des machines banales là où le SGBDR grossit une machine ; il accepte n'importe quel format de fichier là où le SGBDR impose un schéma. Et le lien avec NoSQL : HBase **est** une base NoSQL, la seule de la famille qui vive dans Hadoop ; les autres (MongoDB, Cassandra, Redis) sont indépendantes et se connectent à Spark quand on veut les traiter en masse.
+
+**Ce qu'il faut retenir.** Hadoop = un stockage de fichiers réparti (HDFS) + des traitements qui viennent au fichier (MapReduce, puis Spark). HBase est la base par clé posée dessus. Le parcours principal fait tourner Spark sur les données du fil rouge.
+
+## Atelier : observer le format des données sur Cassandra, Redis et MongoDB
+
+> [!NOTE]
+> **Complément facultatif après la formation**
+> Cet atelier n'est pas réalisé pendant la séance. Suivre les ateliers indiqués par le formateur.
+
+Objectif : voir la même information, un événement du fil rouge, sous les trois formes que lui donnent les trois moteurs, et dire pour chacun ce qui en découle.
+
+> [!NOTE]
+> **Pourquoi Cassandra n'est pas lancé dans le lab**
+> Un nœud Cassandra est une machine virtuelle Java qui réclame plusieurs Go de mémoire et met une à deux minutes à démarrer, pour une observation qui dure cinq minutes. Sur un poste stagiaire en visioconférence, avec MongoDB et HBase déjà lancés, ce serait l'atelier le plus long à installer et le moins manipulé. Son format se lit dans `demos/cassandra-format.cql`, un script CQL commenté ; il s'exécute tel quel sur un Cassandra 4 ou 5 si vous en avez un sous la main plus tard.
+
+### Redis : la valeur est opaque
+
+Si Redis n'est pas encore lancé : `docker compose --profile familles up -d --wait redis`, puis `docker compose exec redis redis-cli`.
+
+Un événement stocké comme une chaîne JSON sous une clé :
+
+```
+SET event:E000183 '{"event_type":"cart_item_added","client_id":"C042","product_id":"P103"}'
+```
+
+```
+GET event:E000183
+```
+
+Redis rend la chaîne, exactement. Il ne sait pas qu'il y a un `product_id` dedans. Une requête « les événements du produit P103 » est impossible sans lire toutes les clés `event:*`.
+
+```
+TYPE event:E000183
+```
+
+```
+DEL event:E000183
+```
+
+Le format Redis, c'est la clé : toute la modélisation est dans sa composition (`session:S0184:client`, `panier:S0184`, `event:E000183`).
+
+### MongoDB : la valeur est un document interrogeable
+
+Le même événement, tel que le lab l'a chargé :
+
+```
+db.evenements.findOne({ event_id: "E000183" }, { _id: 0 })
+```
+
+```text
+{
+  event_id: 'E000183',
+  occurred_at: '2026-09-12T10:02:15Z',
+  event_type: 'cart_item_added',
+  session_id: 'S0184',
+  client_id: 'C042',
+  product_id: 'P103',
+  channel: 'mobile',
+  payload: { quantity: 1 }
+}
+```
+
+La base voit chaque champ, et « les événements du produit P103 » est une requête ordinaire :
+
+```
+db.evenements.find({ product_id: "P103" }, { _id: 0, event_id: 1, event_type: 1 })
+```
+
+Sans index sur `product_id`, elle parcourt la collection ; avec, elle est directe. La différence avec HBase et Cassandra est là : un index secondaire s'ajoute après coup, sans dupliquer la table.
+
+### Cassandra : la clé porte la question, en syntaxe SQL
+
+Lire le fichier :
+
+```
+cat demos/cassandra-format.cql
+```
+
+La table `events_by_client` y est déclarée avec une clé en deux parties : `client_id` est la **clé de partition** (elle décide sur quel nœud vivent les lignes), `occurred_at` et `event_id` sont les **colonnes de clustering** (elles ordonnent les lignes dans la partition). C'est exactement la clé composée de HBase, `client#date#événement`, mais déclarée en colonnes typées au lieu d'être concaténée dans une chaîne.
+
+Le `SELECT … WHERE client_id = 'C042'` fonctionne : une partition, triée. Le `SELECT … WHERE product_id = 'P103'` est **refusé** par le moteur, avec un message qui dit pourquoi : il faudrait parcourir tout le cluster. La réponse Cassandra est la même que HBase, une seconde table `events_by_product`.
+
+### Comparer
+
+Remplir ce tableau avant de lire le corrigé :
+
+| | Redis | MongoDB | Cassandra |
+|---|---|---|---|
+| Où est la structure de l'événement ? | | | |
+| « Les événements du produit P103 » | | | |
+| Ajouter un champ demain | | | |
+| Ce que le moteur garantit sur le type d'un champ | | | |
+
+**Ce qu'il faut retenir.** Trois moteurs, trois endroits pour la structure : dans le nom de la clé (Redis), dans le document (MongoDB), dans la déclaration de la table et de sa clé (Cassandra). Cet endroit décide de ce qu'on pourra demander plus tard.
+
+## Synthèse des principaux acteurs Open Source
+
+| Moteur | Famille | Licence et éditeur | Ce qu'il fait mieux que les autres | Ce qui fait hésiter |
+|---|---|---|---|---|
+| MongoDB | Document | SSPL (source disponible, pas OSI) ; MongoDB Inc., qui vend Atlas, le service managé | Le plus complet des documentaires : requêtes riches, index secondaires, agrégations, transactions, réplication et partitionnement intégrés | La licence SSPL exclut de le proposer soi-même en service ; les fonctions avancées poussent vers Atlas |
+| Apache Cassandra | Colonnes larges | Apache 2.0 ; fondation Apache, DataStax en éditeur commercial | Écritures massives sans point de défaillance, multi-centres de données natif | Modélisation par requête à apprendre ; opérations (compaction, réparation) qui demandent de l'expérience |
+| Redis | Clé-valeur et structures | Redis 7.4 sous licence RSALv2/SSPL (2024), puis AGPL à partir de Redis 8 (2025) ; le fork Valkey (Linux Foundation) reste BSD | Latence en mémoire, structures riches (listes, ensembles, flux), expiration native | Tout tient en RAM : le coût suit le volume ; la persistance est un réglage à comprendre |
+| Couchbase | Document, avec cache clé-valeur intégré | BSL (Business Source License) ; Couchbase Inc. | Un langage de requête proche de SQL (SQL++), et le cache mémoire fusionné avec la base | Communauté plus petite ; le passage de Apache 2.0 à BSL en 2021 a refroidi une partie des utilisateurs |
+| Apache HBase | Colonnes larges | Apache 2.0 | Accès par clé sur un lac de données Hadoop existant | N'a de sens qu'avec Hadoop ; lourd à opérer seul |
+| Neo4j | Graphe | Community en GPLv3, Enterprise commerciale | Le langage Cypher et le parcours de relations | La version libre n'a ni réplication ni partitionnement |
+
+> [!WARNING]
+> **Piège : « Open Source » n'est plus un mot sûr**
+> MongoDB, Redis, Couchbase et Elasticsearch ont tous changé de licence entre 2018 et 2024 pour empêcher les fournisseurs cloud de vendre leur logiciel en service. Le code se lit toujours, s'installe toujours, mais les conditions d'usage ont changé, et des forks sont nés (Valkey pour Redis, OpenSearch pour Elasticsearch). Avant de retenir un moteur, lire sa licence **de la version que vous installerez**, pas celle qu'il avait quand vous l'avez connu.
+
+**Ce qu'il faut retenir.** Le choix entre ces moteurs se fait d'abord par famille, donc par accès ; ensuite par le poids de l'opérer soi-même ; enfin par la licence, qui bouge.
+
+## Les choix matériels
+
+Chaque famille sollicite le matériel différemment, et c'est un critère de choix aussi concret que les fonctionnalités.
+
+| Ressource | Ce qui la consomme | Moteurs concernés |
+|---|---|---|
+| Mémoire vive | Tout ce qui doit être servi en microsecondes ; le jeu de travail (données et index chauds) | Redis : tout ; MongoDB et Cassandra : le jeu de travail, le reste sur disque |
+| Disque, en débit | Les écritures en flux, les compactions, les parcours de plage | Cassandra, HBase, MongoDB pour les collections d'événements |
+| Disque, en volume | Les copies : chaque donnée existe deux ou trois fois | Toutes les bases répliquées ; compter le facteur de réplication dans le dimensionnement |
+| Réseau | Les échanges entre copies, les requêtes qui traversent plusieurs nœuds | Toutes les bases réparties ; plus critique quand les nœuds sont sur plusieurs sites |
+| Nombre de machines | La tolérance aux pannes : trois nœuds est le minimum pour qu'une majorité survive à la perte d'un | MongoDB (replica set), Cassandra, HBase |
+
+Deux règles pratiques. Un SSD n'est pas un confort mais un prérequis pour les bases qui écrivent en flux : la compaction de Cassandra ou l'écriture du journal de MongoDB sur un disque mécanique fait chuter tout le cluster. Et le nombre trois revient partout : trois copies, trois nœuds, parce qu'avec deux, on ne sait pas qui a raison quand ils divergent.
+
+**Ce qu'il faut retenir.** Dimensionner par la ressource que la famille sollicite, et prévoir trois nœuds et le facteur de réplication dès le premier devis.
+
+## Cas d'utilisation dans des entreprises existantes
+
+Quelques cas publiés par les entreprises elles-mêmes, choisis parce qu'ils illustrent chacun un critère de la grille. Ce sont des sources d'entreprises, à lire comme telles : elles racontent un succès, rarement les hésitations.
+
+| Entreprise | Moteur | Ce que le cas illustre |
+|---|---|---|
+| Netflix | Cassandra | Des écritures continues (historique de visionnage, état de lecture) sur plusieurs régions AWS, avec disponibilité prioritaire sur la cohérence : un client qui reprend sa vidéo une seconde trop tôt n'est pas un incident |
+| Discord | Cassandra, puis ScyllaDB (2023) | Des milliers de milliards de messages : le modèle en colonnes larges tient, mais l'exploitation de Cassandra (compactions, latences en queue) a fini par coûter plus que la migration vers un moteur compatible |
+| Twitter (X) | Redis, en cache et en files d'attente | Les fils d'actualité précalculés en mémoire : le cache est la donnée, et il expire |
+| eBay | MongoDB | Le catalogue et les métadonnées de recherche, où les attributs varient par catégorie : le document épouse la variété |
+| Venmo (PayPal) | Migration vers DynamoDB | Un cas de migration détaillé étape par étape par le fournisseur, repris dans le chapitre « Migration » : chargement, double écriture, bascule |
+
+Ce que ces cas ont en commun : aucune de ces entreprises n'a « remplacé SQL ». Chacune a sorti un accès précis, à un moment où il ne tenait plus, et a gardé du relationnel pour le reste. Et chacune a une équipe dédiée à l'exploitation du moteur choisi.
+
+**Ce qu'il faut retenir.** Les grands cas publiés confirment la règle : un accès, une famille, une équipe qui l'opère. Ils ne disent pas qu'il faut faire pareil à une échelle cent fois plus petite.
+
+## Et les performances ? Quelques benchmarks
+
+Un chiffre de performance sans son protocole ne vaut rien, et les chiffres publiés par les éditeurs sont tous produits avec un protocole qui les avantage. Plutôt que des résultats, retenir **comment on mesure**.
+
+**Le banc de référence** est YCSB (Yahoo! Cloud Serving Benchmark), libre, qui définit des charges types : A (50 % lectures, 50 % mises à jour), B (95 % lectures), C (100 % lectures), D (lectures des données les plus récentes), E (parcours de plages), F (lecture-modification-écriture). Tout moteur NoSQL sérieux a été mesuré dessus, et c'est le vocabulaire commun pour comparer.
+
+**Ce qui fait varier un résultat d'un facteur dix**, à moteur égal : la taille du jeu de données par rapport à la mémoire (tout en RAM ou non), le niveau de garantie demandé (une écriture confirmée par une copie ou par trois), la répartition des clés (uniforme ou concentrée sur quelques valeurs chaudes), le matériel (SSD ou non, réseau), et la version du moteur.
+
+**Le protocole à écrire avant de mesurer**, en cinq lignes : la charge (proportion de lectures, d'écritures, de parcours), le volume et sa répartition, le niveau de garantie exigé (le même pour tous les moteurs comparés), la métrique (débit **et** latence au 99ᵉ centile, pas la moyenne), et la durée (assez longue pour que les compactions et le ramasse-miettes se produisent).
+
+> [!WARNING]
+> **Piège : la latence moyenne**
+> Une base qui répond en 2 ms en moyenne et en 800 ms une fois sur cent est une base dont un client sur cent attend presque une seconde. C'est le 99ᵉ centile qu'on voit en production, jamais la moyenne. Un benchmark qui ne le publie pas cache quelque chose.
+
+**Ce qu'il faut retenir.** Ne pas comparer des chiffres, comparer des protocoles. Écrire le vôtre avec YCSB, à garantie égale, et lire le 99ᵉ centile.
+
+## Qu'est-ce que NewSQL ?
+
+Le NoSQL a abandonné SQL et les transactions pour pouvoir se répartir. Le NewSQL est la tentative de **garder les deux et de se répartir quand même**.
+
+Un moteur NewSQL parle SQL, offre des transactions ACID complètes, et se répartit sur des dizaines de nœuds avec réplication automatique. Il y parvient par des protocoles de consensus (Raft, Paxos) qui font tomber d'accord une majorité de copies avant de confirmer une écriture, et par des horloges synchronisées pour ordonner les transactions entre nœuds. Le prix : une latence d'écriture plus élevée qu'un SGBDR local (il faut le réseau pour le consensus) et une complexité d'exploitation proche de celle d'une base NoSQL.
+
+| Moteur | Origine | Particularité |
+|---|---|---|
+| Google Spanner | Google, service cloud | L'article fondateur (2012) ; horloges atomiques et GPS pour ordonner les transactions à l'échelle mondiale |
+| CockroachDB | Cockroach Labs, licence BSL puis propriétaire | Compatible PostgreSQL ; survit à la perte d'un centre de données |
+| TiDB | PingCAP, Apache 2.0 | Compatible MySQL ; sépare le stockage (TiKV) du calcul |
+| YugabyteDB | Yugabyte, Apache 2.0 sur le cœur | Compatible PostgreSQL et Cassandra à la fois |
+
+Où il se place dans la grille : quand l'accès est **relationnel** (jointures, transactions multi-tables) mais que le **volume ou la disponibilité** dépassent une machine. C'est la case que ni le SGBDR classique ni le NoSQL ne remplissent. Le terme lui-même vieillit : on dit plutôt aujourd'hui « SQL distribué ».
+
+**Ce qu'il faut retenir.** NewSQL = SQL et ACID sur un cluster, au prix de la latence du consensus. À considérer quand on a besoin des garanties relationnelles et qu'on ne tient plus sur une machine, avant de renoncer aux garanties.
+
+## Atelier : construire la matrice de synthèse
+
+> [!NOTE]
+> **Complément facultatif après la formation**
+> Cette activité ouverte n'est pas réalisée pendant la séance. La comparaison en cours porte sur le catalogue fourni et des questions guidées.
+
+Objectif complémentaire : construire une grille de comparaison en justifiant chaque choix.
+
+### Étape 1 : remplir la matrice
+
+Pour chaque case, une note sur trois niveaux (✅ point fort · ☑️ acceptable · 🚫 faiblesse) **et une justification d'une ligne**. Une note sans justification ne compte pas.
+
+| Critère | Redis | MongoDB | Cassandra | HBase | SGBDR (référence) |
+|---|---|---|---|---|---|
+| Lecture par clé, latence minimale | | | | | |
+| Requêtes riches (filtres sur plusieurs champs, agrégations) | | | | | |
+| Écritures massives et continues | | | | | |
+| Parcours de plages triées | | | | | |
+| Schéma souple, attributs variables | | | | | |
+| Garanties transactionnelles | | | | | |
+| Passage à l'échelle horizontal | | | | | |
+| Disponibilité multi-sites | | | | | |
+| Courbe d'apprentissage | | | | | |
+| Complexité d'exploitation | | | | | |
+| Coût mémoire et matériel | | | | | |
+
+### Étape 2 : appliquer au fil rouge
+
+Pour chacune des quatre données de la boutique, choisir un moteur avec la matrice, et écrire la ligne de la matrice qui a été décisive :
+
+| Donnée | Moteur retenu | Le critère qui a tranché |
+|---|---|---|
+| Catalogue produit | | |
+| Commandes et paiements | | |
+| Sessions et paniers | | |
+| Événements de navigation | | |
+
+### Étape 3 : chercher le désaccord
+
+Chaque groupe présente sa case la plus discutée. Le corrigé donne une matrice remplie ; elle est un point de comparaison, pas une vérité : une case où votre note diffère avec une bonne justification est une case où le contexte compte, et c'est ce qu'il faut retenir.
+
+**Ce qu'il faut retenir.** La matrice n'est pas une réponse, c'est une méthode : des critères explicites, une note justifiée par case, puis l'application à chaque donnée séparément.
+
+## L'offre Hadoop pour le stockage et l'analyse
+
+Les sections précédentes ont posé les briques HDFS, YARN, MapReduce et HBase. Voici ce qu'on trouve réellement dans un cluster Hadoop en production, et ce que chaque brique apporte.
+
+| Brique | Rôle | Ce qu'on lui demande |
+|---|---|---|
+| HDFS | Stockage de fichiers réparti et répliqué | Recevoir tous les fichiers bruts : journaux, exports, événements, sans les transformer |
+| YARN | Ordonnanceur de ressources | Donner du CPU et de la mémoire aux traitements, plusieurs à la fois |
+| Hive | SQL sur les fichiers de HDFS | Faire des requêtes analytiques en SQL sur des fichiers, sans base : une table Hive est une description de fichiers |
+| Spark | Moteur de traitement en mémoire | Tout traitement qui n'est pas du SQL simple : nettoyage, agrégation, apprentissage |
+| HBase | Base par clé sur HDFS | L'accès opérationnel aux données du cluster |
+| Kafka (hors Hadoop, mais toujours à côté) | File de messages répartie | Recevoir les événements en flux avant qu'ils touchent le disque |
+| Parquet et ORC | Formats de fichiers en colonnes | Stocker les données transformées de façon compacte et rapide à parcourir par colonne |
+
+Le mot d'ordre du **lac de données** (data lake) : on stocke tout, brut, dans HDFS ou son équivalent cloud (S3, Azure Data Lake, Google Cloud Storage), et on décide plus tard de ce qu'on en fait. Le schéma s'applique à la lecture, par le traitement, pas à l'écriture. C'est exactement l'inverse du relationnel, et c'est ce qui permet de ne rien jeter.
+
+Les distributions (Cloudera, et les services cloud : Amazon EMR, Google Dataproc, Azure HDInsight) empaquettent ces briques. Aujourd'hui, la plupart des nouveaux projets n'installent plus Hadoop : ils prennent le stockage d'objets du cloud à la place de HDFS, et Spark en service managé à la place de YARN. Les concepts restent, les composants changent de nom.
+
+**Ce qu'il faut retenir.** Hadoop est devenu un vocabulaire plus qu'un produit : un stockage de fichiers bon marché et répliqué, un moteur de traitement qui vient à la donnée, et des formats en colonnes entre les deux.
+
 ## Exemples de données stockées sur un système de type HDFS
 
 HDFS ne contient pas de tables : il contient des dossiers et des fichiers, souvent gros, souvent partitionnés par date dans le nom des dossiers. Le fil rouge, une fois ses événements versés dans un lac de données, ressemble à ceci :
 
-```
+```text
 /lac/
 ├── brut/                                   zone d'arrivée, jamais modifiée
 │   ├── evenements/
@@ -1492,45 +2590,6 @@ La différence avec une base : un moteur de recherche **n'est pas la source de v
 
 **Ce qu'il faut retenir.** La recherche est un accès à part, servi par un index inversé sur une copie des données. PageRank montre ce qu'est un calcul de graphe : itératif, global, réparti.
 
-## Traiter les données avec Spark
-
-Spark est le moteur de traitement du Big Data d'aujourd'hui. Trois idées suffisent à lire un programme Spark, et elles se voient toutes dans la démonstration.
-
-**Un DataFrame est une description, pas des données.** `spark.read.json(...)` ne lit rien. `filter(...)`, `withColumn(...)`, `groupBy(...)` ne calculent rien. Chacune ajoute une étape à un **plan**. Ce sont des **transformations**, et elles sont **paresseuses** : Spark accumule, et attend.
-
-**Une action déclenche le calcul.** `show()`, `count()`, `write(...)` sont des **actions** : Spark prend le plan accumulé, l'optimise (il réordonne, fusionne, élimine ce qui ne sert pas au résultat demandé), le découpe en tâches et les distribue. C'est pourquoi `explain()` peut afficher le plan **avant** que quoi que ce soit ait tourné.
-
-**Le calcul se répartit par partition.** Chaque fichier d'entrée est découpé en morceaux ; chaque morceau est traité par une tâche, sur la machine qui l'a. Les étapes qui peuvent se faire morceau par morceau (filtrer, transformer une colonne) s'enchaînent sans échange réseau. Les étapes qui doivent rassembler (grouper, trier, joindre) provoquent un **échange** (*shuffle*) : les données sont redistribuées entre machines par clé. C'est l'étape chère, et c'est celle qu'on cherche à réduire.
-
-```mermaid
-graph LR
-    L["read.json<br/>transformation"] --> F["filter<br/>transformation"]
-    F --> W["withColumn<br/>transformation"]
-    W --> G["groupBy.count<br/>transformation<br/>(provoque un shuffle)"]
-    G --> S["show<br/>ACTION : tout s'exécute"]
-    style S fill:#e76f51,color:#fff
-    style G fill:#e9c46a
-```
-
-Lire le plan que Spark affiche pour l'agrégation de la démonstration, de bas en haut :
-
-```
-(1) Scan json          lecture du fichier, seules 3 colonnes sont lues
-(2) HashAggregate      compte partiel, dans chaque partition, sans réseau
-(3) Exchange           shuffle : les comptes partiels sont regroupés par clé
-(4) HashAggregate      compte final par clé
-(5) Exchange           second shuffle, pour le tri
-(6) Sort               tri demandé par orderBy
-```
-
-Deux détails y disent l'essentiel de Spark. `ReadSchema: struct<channel,event_type,product_id>` : le fichier a neuf champs, Spark n'en lit que trois, parce que le plan sait que les autres ne servent pas. Et le compte se fait **deux fois**, partiel avant l'échange, final après : la moitié du travail est faite sans réseau.
-
-> [!NOTE]
-> **Question : MapReduce faisait déjà ça, pourquoi Spark l'a remplacé ?**
-> MapReduce écrit sur disque entre chaque étape. Un calcul en dix étapes lit et écrit dix fois. Spark garde les données intermédiaires en mémoire et optimise la chaîne entière avant de la lancer. Sur un calcul itératif comme PageRank, l'écart est d'un facteur dix à cent. Et Spark expose une API de DataFrame, proche de SQL et de pandas, là où MapReduce demandait d'écrire les fonctions *map* et *reduce* à la main.
-
-**Ce qu'il faut retenir.** Transformations paresseuses, action qui déclenche, calcul par partition avec des échanges à minimiser. Lire `explain()` avant de lancer dit ce que ça va coûter.
-
 ## Les outils permettant de se relier à d'autres moteurs
 
 Un lac de données se remplit depuis des sources qui ne sont pas des fichiers : des bases relationnelles, des bases NoSQL, des flux. Trois familles d'outils.
@@ -1539,176 +2598,9 @@ Un lac de données se remplit depuis des sources qui ne sont pas des fichiers : 
 
 **Sqoop**, l'outil historique de Hadoop pour copier une table relationnelle vers HDFS (et retour), par JDBC, en parallèle. Il est retiré des projets Apache actifs depuis 2021 ; on le rencontre encore sur les clusters anciens. Son rôle est repris par les connecteurs Spark et par les outils de réplication de changements.
 
-**Les outils d'ETL et de capture de changements.** Un ETL (Talend, Informatica, Airbyte, dbt pour la transformation) orchestre des copies planifiées entre systèmes. La capture de changements (Debezium, ou le *change stream* de MongoDB) fait mieux : elle lit le journal de la base source et propage chaque modification en continu vers Kafka, puis vers le lac. C'est l'outil de la double écriture d'une migration, décrite au Jour 1 dans « Comment aborder la migration ? ».
+**Les outils d'ETL et de capture de changements.** Un ETL (Talend, Informatica, Airbyte, dbt pour la transformation) orchestre des copies planifiées entre systèmes. La capture de changements (Debezium, ou le *change stream* de MongoDB) fait mieux : elle lit le journal de la base source et propage chaque modification en continu vers Kafka, puis vers le lac. C'est l'outil de la double écriture d'une migration, décrite dans le chapitre « Migration ».
 
 **Ce qu'il faut retenir.** Spark lit presque tout directement par connecteur ; la capture de changements remplace la copie nocturne quand il faut du continu ; Sqoop appartient au passé.
-
-## Les offres NoSQL pour le Big Data dans le Cloud
-
-Chaque fournisseur propose les mêmes familles, sous ses noms. Le tableau sert à traduire, pas à comparer : les services ne sont pas équivalents dans le détail.
-
-| Famille | Amazon Web Services | Google Cloud | Microsoft Azure | OVHcloud |
-|---|---|---|---|---|
-| Clé-valeur et document managé | DynamoDB | Firestore | Cosmos DB (plusieurs API, dont MongoDB) | Managed MongoDB (en partenariat avec MongoDB) |
-| Colonnes larges | Keyspaces (compatible Cassandra) | Bigtable | Cosmos DB, API Cassandra | Pas d'offre dédiée |
-| MongoDB en service | DocumentDB (compatible, pas MongoDB), ou Atlas sur AWS | Atlas sur GCP | Cosmos DB API MongoDB, ou Atlas sur Azure | Managed MongoDB |
-| Cache mémoire | ElastiCache (Redis, Valkey) | Memorystore | Azure Cache for Redis | Pas d'offre dédiée |
-| Stockage d'objets (le HDFS du cloud) | S3 | Cloud Storage | Data Lake Storage | Object Storage |
-| Spark managé | EMR, Glue | Dataproc | HDInsight, Synapse, Databricks | Data Processing (Spark) |
-
-Ce que « managé » veut dire, et ce qu'il ne veut pas dire :
-
-- **Le fournisseur prend** : les serveurs, les disques, la réplication, les mises à jour, les sauvegardes, la supervision de base, le passage à l'échelle.
-- **Il ne prend pas** : la modélisation, le choix de la clé de partition, la validation des données, le code client, la maîtrise des coûts. Une clé mal choisie sur DynamoDB coûte de l'argent au lieu de coûter de la latence.
-- **Le prix se paie à l'usage** : par requête, par Go stocké, par Go transféré. Il faut savoir ce que l'application fait pour prévoir la facture.
-
-> [!NOTE]
-> **Question : Atlas ou Cosmos DB « API MongoDB », c'est pareil ?**
-> Non. Atlas est MongoDB, opéré par MongoDB Inc. sur le cloud de votre choix. Cosmos DB API MongoDB et Amazon DocumentDB sont des moteurs différents qui **parlent le protocole** MongoDB : la plupart des requêtes fonctionnent, certaines fonctions manquent ou se comportent autrement. Pour une application existante, le tester, ne pas le supposer.
-
-**Ce qu'il faut retenir.** Le cloud vend l'exploitation, pas la conception. Traduire les noms, puis relire ce qui reste à la charge de l'équipe.
-
-## Démonstration : visite guidée de l'offre NoSQL d'un acteur majeur
-
-La visite se fait sur la documentation d'Amazon DynamoDB, sans compte ni console : ce qu'il faut comprendre s'y lit, et rien de ce qui suit ne demande de cliquer sur « créer ». Suivre avec le formateur, ou refaire seul avec les liens.
-
-### Ce que DynamoDB prend en charge
-
-DynamoDB est un service clé-valeur et document. On crée une **table**, on lui donne une **clé de partition** et, en option, une **clé de tri**. On n'installe rien, on ne choisit ni le nombre de serveurs ni leur taille. La documentation le dit en une phrase : les données sont stockées dans des partitions sur SSD, **répliquées automatiquement sur plusieurs zones de disponibilité** d'une région, et la gestion des partitions est entièrement prise en charge. Ce que le Jour 2 vient d'expliquer (réplication, partitionnement, clé) existe ; on ne le voit plus.
-
-### La clé, encore
-
-Pour le fil rouge, une table `events_by_client` aurait `client_id` en clé de partition et `occurred_at` en clé de tri. C'est exactement la clé de HBase et de Cassandra : lire les événements d'un client est une requête sur une partition, triée. Chercher par produit demande un **index secondaire global**, c'est-à-dire une seconde table maintenue par le service, facturée en plus. Le modèle n'a pas changé ; seule l'exploitation a disparu.
-
-### La capacité, ou comment on paie
-
-Deux modes, documentés côte à côte :
-
-| Mode | Fonctionnement | Quand |
-|---|---|---|
-| À la demande (*on-demand*) | On ne déclare rien ; on paie chaque lecture et chaque écriture. Le service absorbe les pics. C'est le mode par défaut recommandé par AWS | Charge imprévisible ou nouvelle ; le plus simple |
-| Provisionné (*provisioned*) | On déclare un nombre de lectures et d'écritures par seconde ; on paie cette capacité à l'heure, consommée ou non. Au-delà, les requêtes sont ralenties ou refusées | Charge stable et connue ; moins cher à l'usage régulier |
-
-Le point à retenir pour une équipe : en mode provisionné, un pic de trafic non prévu produit des **erreurs**, pas de la latence. C'est un comportement qu'aucune base auto-hébergée n'a, et qu'il faut concevoir dans l'application (attente et nouvel essai).
-
-### La protection des données
-
-Trois mécanismes distincts, à ne pas confondre :
-
-- **La réplication dans la région**, automatique et invisible, protège d'une panne de matériel ou d'une zone.
-- **Les tables globales** répliquent la table dans d'autres régions, avec écriture possible partout et résolution du dernier écrit gagnant ; c'est une option, facturée.
-- **La restauration à un instant** (*point-in-time recovery*) garde un historique continu jusqu'à 35 jours et permet de recréer la table telle qu'elle était à n'importe quelle seconde. C'est la seule des trois qui protège d'une **erreur humaine** : la réplication copie fidèlement un `DELETE` malheureux.
-
-### La supervision et le coût
-
-Les métriques sont dans CloudWatch, sans rien installer : unités consommées, requêtes ralenties, latence, erreurs. Les regarder, c'est à l'équipe. Le coût suit quatre dimensions : requêtes (ou capacité provisionnée), stockage, transfert sortant, options (index globaux, tables globales, restauration). Sans chiffres ici, ils changent ; la structure, elle, reste.
-
-**Ce qu'il faut retenir.** Un service managé vend l'exploitation d'un modèle que vous devez toujours comprendre : la clé décide de tout, la capacité se paie ou se refuse, et seule la restauration protège d'une erreur.
-
-## Démonstration : nettoyer un gros volume selon un motif imposé
-
-Le cas : les numéros de téléphone saisis au passage en caisse arrivent sous toutes les formes (`06 00 00 00 01`, `+33 6 00 00 00 02`, `invalide`). Il faut les ramener au format international `+33XXXXXXXXX`, et rejeter ce qui ne peut pas l'être. Sur seize événements c'est un exercice ; sur cent millions c'est un traitement Spark, et il est écrit exactement pareil.
-
-Le script est `demos/spark-demo.py`. Le lancer (le formateur le fait en partage d'écran ; la commande fonctionne telle quelle sur le lab, l'image Spark fait plus d'un Go) :
-
-```
-docker compose --profile bigdata run --rm spark
-```
-
-Le cœur du nettoyage, dans le script :
-
-```python
-phones = (
-    events.filter(F.col("event_type") == "checkout_started")
-    .withColumn("phone_raw", F.col("payload.phone"))
-    .withColumn("digits", F.regexp_replace("phone_raw", r"\D", ""))
-    .withColumn(
-        "phone_normalized",
-        F.when(F.col("digits").rlike(r"^0[67][0-9]{8}$"),
-               F.concat(F.lit("+33"), F.substring("digits", 2, 9)))
-         .when(F.col("digits").rlike(r"^33[67][0-9]{8}$"),
-               F.concat(F.lit("+"), F.col("digits")))
-         .otherwise(F.lit(None).cast("string")),
-    )
-)
-```
-
-Lire ce qu'il fait, colonne par colonne : garder les passages en caisse ; extraire le téléphone du sous-objet `payload` ; ne garder que les chiffres ; puis, si ça ressemble à un mobile français à dix chiffres, préfixer `+33` et retirer le zéro ; si ça commence déjà par `33`, préfixer `+` ; sinon, `null`. Aucune boucle, aucun `if` sur une ligne : chaque étape décrit une **colonne entière**, et Spark l'applique à toutes les lignes, sur toutes les machines.
-
-**À observer.** Avant de regarder la sortie : sur les trois passages en caisse du fil rouge, combien de numéros seront normalisés, et lequel sera rejeté ?
-
-```
-+--------+-----------------+----------------+
-|event_id|phone_raw        |phone_normalized|
-+--------+-----------------+----------------+
-|E000187 |06 00 00 00 01   |+33600000001    |
-|E000191 |+33 6 00 00 00 02|+33600000002    |
-|E000195 |invalide         |NULL            |
-+--------+-----------------+----------------+
-```
-
-Deux normalisés, un rejeté. La ligne rejetée n'est pas perdue : elle est marquée `NULL`, et un second traitement peut la compter, l'isoler, ou la renvoyer à la saisie.
-
-**Ce qu'il faut retenir.** Un nettoyage Spark se lit comme une suite de colonnes calculées, avec des expressions régulières et des conditions. La même écriture vaut pour seize lignes ou cent millions.
-
-## Démonstration : traiter un gros volume avec Spark au-dessus d'une base NoSQL
-
-La même exécution continue avec l'agrégation : combien d'événements par produit, par type et par canal. C'est la question analytique type, celle qu'on ne pose pas à la base opérationnelle parce qu'elle parcourt tout.
-
-```python
-indicators = (
-    events.groupBy("product_id", "event_type", "channel")
-    .count()
-    .orderBy("product_id", "event_type", "channel")
-)
-indicators.explain(mode="formatted")   # affiche le plan, ne calcule rien
-indicators.show(50, truncate=False)    # action : le calcul a lieu ici
-```
-
-Le script marque une pause entre les deux (option `--pause`) pour que la salle voie le plan **avant** le résultat. C'est le moment de dire ce qui va se passer : lecture de trois colonnes, compte partiel par partition, échange, compte final, tri.
-
-Le résultat :
-
-```
-+----------+------------------+-------+-----+
-|product_id|event_type        |channel|count|
-+----------+------------------+-------+-----+
-|P101      |cart_item_added   |web    |1    |
-|P101      |checkout_started  |web    |1    |
-|P101      |product_viewed    |mobile |1    |
-|P101      |product_viewed    |web    |1    |
-|P101      |purchase_completed|web    |1    |
-|P103      |cart_abandoned    |mobile |1    |
-…
-|P107      |product_viewed    |web    |1    |
-+----------+------------------+-------+-----+
-
-Téléphones normalisés : 2 ; téléphones rejetés : 1
-```
-
-Seize lignes, un compte de 1 partout : le jeu de données est trop petit pour que les comptes montent, et c'est voulu. Ce qu'on regarde n'est pas le chiffre, c'est le **chemin** : un fichier JSON lu sans schéma déclaré, une agrégation sur trois clés, un plan optimisé, un résultat trié. Avec `spark.read.format("mongodb")` à la place de `read.json`, le programme lirait la collection `evenements` du lab sans autre changement.
-
-> [!NOTE]
-> **Question : pourquoi ne pas faire cette agrégation dans MongoDB, qui sait le faire ?**
-> Sur seize documents, MongoDB le fait très bien, et plus simplement. La frontière passe au volume et à l'usage : une agrégation qui parcourt toute une collection de production, tous les soirs, pendant vingt minutes, ralentit la base pour les utilisateurs. Spark la fait sur une copie (l'export du lac), sur d'autres machines, sans toucher l'opérationnel. C'est exactement le partage NoSQL / Big Data de l'ouverture de section.
-
-**Ce qu'il faut retenir.** Le traitement analytique se fait à côté de la base opérationnelle, sur ses données exportées, avec un moteur qui décrit le calcul avant de le lancer. La base sert les utilisateurs ; Spark sert les analystes.
-
-# Jour 2 · Dialogue avec une base NoSQL (MongoDB)
-
-Tout ce qui précède se rejoue maintenant les mains sur le clavier, dans un seul moteur. MongoDB est choisi parce qu'il est le documentaire le plus répandu et parce qu'il porte, dans un seul produit, tout ce que la formation a nommé : documents, index, réplication, partitionnement, administration. Chaque notion de cette section est suivie de sa manipulation ; les cinq ateliers guidés de fin s'enchaînent sur les données du fil rouge.
-
-Avant de commencer, remettre le lab dans son état de référence :
-
-```
-sh scripts/load-data.sh
-```
-
-Puis ouvrir le shell, qui reste ouvert pour toute la section :
-
-```
-docker compose exec mongodb mongosh mongodb://localhost:27017/formation_nosql
-```
 
 ## Comprendre le fonctionnement du moteur de stockage
 
@@ -1734,23 +2626,76 @@ La seconde donne la taille du cache en Mo : sur le lab, plusieurs Go, très au-d
 
 **Ce qu'il faut retenir.** Cache pour lire, journal pour ne rien perdre, instantanés pour écrire les fichiers. Le jeu de travail doit tenir dans le cache ; c'est la règle de dimensionnement.
 
-## Création de documents et manipulations dans le shell
+## Explorer le shell MongoDB
 
-Le shell est un interpréteur JavaScript avec un objet `db` qui représente la base courante. Trois règles de lecture : `db.<collection>.<opération>(<filtre>, <options>)`, le filtre est un document, et une collection ou une base **n'a pas besoin d'être créée** : elle apparaît à la première écriture.
+Cette annexe rassemble des commandes utiles pour explorer l’environnement. Elles ne font pas partie de l’Atelier 1.
 
-**À essayer.** Créer une base et une collection sans les déclarer :
+### Afficher la version du serveur
+
+```
+db.version()
+```
+
+La commande affiche la version du serveur MongoDB auquel `mongosh` est connecté. Le numéro peut changer si l’image du lab est mise à jour.
+
+### Compter les collections de la base
+
+```
+db.stats().collections
+```
+
+Juste après `sh scripts/load-data.sh`, la base contient deux collections : `produits` et `evenements`. Ce nombre peut augmenter après les ateliers qui créent `commandes` ou `messages`.
+
+### Parcourir plusieurs lots de résultats
+
+```
+db.produits.find()
+```
+
+Lorsque tous les résultats ne tiennent pas dans le premier lot affiché par `mongosh`, saisir :
+
+```
+it
+```
+
+`it` affiche le lot suivant. Le catalogue du lab ne contient que huit produits : cette pagination n’y est donc généralement pas visible.
+
+### Créer une collection avec une validation
+
+Cette manipulation facultative montre comment demander à MongoDB de contrôler la forme des documents d’une collection.
+
+Depuis une base de test :
 
 ```
 use boutique_test
 ```
 
-```
-db.essai.insertOne({ bonjour: "monde" })
-```
+Créer la collection `stock` :
 
 ```
-show collections
+db.createCollection("stock", { validator: { $jsonSchema: {
+  bsonType: "object",
+  required: ["product_id", "quantite"],
+  properties: {
+    product_id: { bsonType: "string" },
+    quantite:   { bsonType: "int", minimum: 0 }
+  }
+} } })
 ```
+
+Une quantité entière positive ou nulle est acceptée :
+
+```
+db.stock.insertOne({ product_id: "P101", quantite: NumberInt(3) })
+```
+
+Une quantité sous forme de texte est refusée avec `Document failed validation` :
+
+```
+db.stock.insertOne({ product_id: "P101", quantite: "beaucoup" })
+```
+
+Nettoyer puis revenir à la base de la formation :
 
 ```
 db.dropDatabase()
@@ -1760,499 +2705,163 @@ db.dropDatabase()
 use formation_nosql
 ```
 
-Les quatre opérations de base, sur les produits :
+### Analyser les messages importés
+
+Ces requêtes facultatives permettent d’aller plus loin après l’Atelier 3.
+
+Compter les messages par source et par niveau :
 
 ```
-db.produits.insertOne({ product_id: "P201", category: "cafe", name: "Altitude Kenya", active: true, price: 13.5, attributes: { origin: "Kenya", roast: "medium" } })
-```
-
-```
-db.produits.find({ category: "cafe" }, { _id: 0, product_id: 1, name: 1, price: 1 }).sort({ price: 1 })
-```
-
-```
-db.produits.updateOne({ product_id: "P201" }, { $set: { price: 14 }, $inc: { "attributes.stock": 20 } })
-```
-
-```
-db.produits.deleteOne({ product_id: "P201" })
-```
-
-Deux choses à voir dans le résultat de chaque écriture : `acknowledged: true` (le serveur a confirmé, selon le write concern), et les compteurs (`insertedId`, `matchedCount` et `modifiedCount`, `deletedCount`). `matchedCount: 1, modifiedCount: 0` veut dire que le document existait et avait déjà ces valeurs : pas une erreur, une information.
-
-> [!WARNING]
-> **Piège : `updateOne` sans opérateur**
-> `db.produits.updateOne({ product_id: "P101" }, { price: 700 })` est refusé par le shell moderne, mais `replaceOne` avec le même second argument **remplace tout le document** par `{ price: 700 }` : le nom, la catégorie, les attributs disparaissent. Une mise à jour porte toujours un opérateur (`$set`, `$inc`, `$unset`, `$push`…) ; un remplacement est un geste différent, à faire exprès.
-
-**Ce qu'il faut retenir.** Le shell parle JavaScript ; les collections naissent à la première écriture ; chaque écriture rend un compte à lire. `$set` modifie, `replaceOne` écrase.
-
-## Importation de données des SGBDR au format JSON
-
-Le cas le plus fréquent en entreprise : les commandes vivent dans une base relationnelle, et on veut les avoir dans MongoDB, pour le catalogue client, pour l'analytique, ou pour une migration. Trois tables normalisées doivent devenir un document par commande.
-
-Le fichier `data/export-sgbdr/commandes.sql` montre la source : `clients`, `commandes`, `lignes`, et la requête d'export. Le principe : **le SGBDR fait la jointure une dernière fois**, et produit du JSON déjà imbriqué. PostgreSQL le fait avec `json_build_object` et `json_agg` ; MySQL avec `JSON_OBJECT` et `JSON_ARRAYAGG` ; Oracle et SQL Server ont leurs équivalents.
-
-```sql
-SELECT json_build_object(
-  'order_id', c.order_id,
-  'client',   json_build_object('client_id', cl.client_id, 'email', cl.email, 'ville', cl.ville),
-  'lignes',   (SELECT json_agg(json_build_object('product_id', l.product_id, 'qty', l.qty, 'unit_price', l.unit_price))
-               FROM lignes l WHERE l.order_id = c.order_id)
-)
-FROM commandes c JOIN clients cl ON cl.client_id = c.client_id;
-```
-
-Le résultat est dans `data/export-sgbdr/commandes.json` : un tableau JSON de deux commandes. L'importer, depuis un terminal hors du shell :
-
-```
-docker compose exec -T mongodb mongoimport --db=formation_nosql --collection=commandes --drop --jsonArray --file=/lab/data/export-sgbdr/commandes.json
-```
-
-```
-2 document(s) imported successfully. 0 document(s) failed to import.
-```
-
-L'option `--jsonArray` dit que le fichier est un tableau `[ … ]` ; sans elle, `mongoimport` attend un document par ligne (le format des autres fichiers du lab, JSON Lines).
-
-**À observer.** La commande O5002 est maintenant un document : son client et ses deux lignes sont dedans, sans jointure.
-
-```
-db.commandes.findOne({ order_id: "O5002" }, { _id: 0 })
-```
-
-Le total de la commande se calcule en descendant dans les lignes :
-
-```
-db.commandes.aggregate([
-  { $match: { order_id: "O5002" } },
-  { $unwind: "$lignes" },
-  { $group: { _id: "$order_id", total: { $sum: { $multiply: ["$lignes.qty", "$lignes.unit_price"] } } } }
+db.messages.aggregate([
+  { $group: { _id: { source: "$source", level: "$level" }, n: { $sum: 1 } } },
+  { $sort: { "_id.source": 1, "_id.level": 1 } }
 ])
 ```
 
-Résultat : `110.8`.
+**Résultat attendu** : six groupes — `expedition/info` 1, `paiement/info` 2, `stock/info` 1, `stock/warn` 1, `web/error` 1 et `web/warn` 1.
 
-> [!WARNING]
-> **Piège : les dates arrivent en chaînes**
-> Le JSON n'a pas de type date. `ordered_at` a été importé comme la chaîne `'2026-09-12T10:31:02'`, et une comparaison `$gte: ISODate(...)` ne trouvera rien. Vérifier :
->
-> ```
-> db.commandes.findOne().ordered_at instanceof Date
-> ```
->
-> Deux remèdes : exporter au format JSON étendu de MongoDB (`{"$date": "..."}`), que `mongoimport` reconnaît ; ou convertir après import, en une seule écriture avec un pipeline de mise à jour :
->
-> ```
-> db.commandes.updateMany({}, [{ $set: { ordered_at: { $toDate: "$ordered_at" } } }])
-> ```
->
-> Même vigilance pour les nombres (`NUMERIC` devient `double`, pas `Decimal128`) et les booléens exportés en `0` / `1`.
+Afficher les avertissements et les erreurs par ordre chronologique :
 
-**Ce qu'il faut retenir.** Le SGBDR produit le document par sa dernière jointure ; `mongoimport` le charge ; les types (dates, décimaux) se vérifient après import, parce que JSON ne les porte pas.
-
-## Indexer les données
-
-Un index est la seule chose qui sépare une requête qui lit deux documents d'une requête qui les lit tous. Et MongoDB dit exactement ce qu'il fait, avec `explain`.
-
-### Lire un plan
-
-La requête étudiée : les cafés actifs, triés par prix.
-
-```
-const filter = { category: "cafe", active: true }
-```
-
-```
-const order = { price: 1 }
-```
-
-```
-db.produits.find(filter, { _id: 0, product_id: 1, name: 1, price: 1 }).sort(order).explain("executionStats")
-```
-
-Dans la sortie, chercher trois choses. Le **plan gagnant** (`queryPlanner.winningPlan`), une pile d'étapes à lire de l'intérieur vers l'extérieur ; et dans `executionStats`, trois compteurs :
-
-| Compteur | Ce qu'il dit |
-|---|---|
-| `nReturned` | Combien de documents la requête a retournés |
-| `totalKeysExamined` | Combien d'entrées d'index ont été lues |
-| `totalDocsExamined` | Combien de documents ont été lus sur disque ou en cache |
-
-Avant tout index, sur le lab :
-
-```
-SORT <- PROJECTION_SIMPLE <- COLLSCAN     nReturned=2  keys=0  docs=8
-```
-
-`COLLSCAN` : la collection entière a été parcourue, huit documents lus pour deux retournés, puis un tri en mémoire (`SORT`). Sur huit documents c'est invisible ; sur huit millions, c'est la requête qui fait tomber la base.
-
-### Choisir les champs d'un index composé
-
-La requête filtre sur deux **égalités** (`category`, `active`) et **trie** sur `price`. La règle de composition, dans cet ordre : d'abord les champs d'égalité, puis les champs de tri, puis les champs de plage (`$gt`, `$lt`). Avec les égalités en tête, l'index ne contient, pour une catégorie et un état donnés, que des entrées **déjà triées par prix** : le tri disparaît du plan.
-
-```
-db.produits.createIndex({ category: 1, active: 1, price: 1 }, { name: "idx_category_active_price" })
-```
-
-Refaire exactement le même `explain` :
-
-```
-PROJECTION_SIMPLE <- FETCH <- IXSCAN      nReturned=2  keys=2  docs=2
-```
-
-`IXSCAN` : l'index a été parcouru, deux clés lues, deux documents récupérés (`FETCH`), aucun tri. Le ratio `docs / nReturned` est passé de 4 à 1 : c'est le chiffre à regarder sur une vraie requête. Un ratio de 100 dit qu'on lit cent documents pour en rendre un.
-
-```mermaid
-graph LR
-    subgraph Sans["Sans index : COLLSCAN"]
-        C1["8 documents lus"] --> C2["2 gardés"] --> C3["tri en mémoire"]
-    end
-    subgraph Avec["Avec index composé : IXSCAN"]
-        I1["2 clés lues, déjà triées"] --> I2["2 documents récupérés"]
-    end
-    style C1 fill:#e76f51,color:#fff
-    style I1 fill:#2a9d8f,color:#fff
-```
-
-### Ce que l'index coûte
-
-Un index n'est pas gratuit : chaque écriture sur la collection doit aussi le mettre à jour, et il occupe de la mémoire dans le cache. La question avant d'en créer un : cette requête est-elle assez fréquente pour payer ce coût à chaque insertion ?
-
-```
-db.produits.totalIndexSize()
-```
-
-Et un index composé sert aussi les requêtes sur son **préfixe** : `{ category: "cafe" }` seul et `{ category: "cafe", active: true }` l'utilisent ; `{ active: true }` seul ne l'utilise pas, ni `{ price: { $lt: 20 } }` seul. Un index ne se lit que depuis son premier champ.
-
-> [!WARNING]
-> **Piège : indexer chaque champ séparément**
-> Un index sur `category`, un autre sur `active`, un autre sur `price` ne remplacent pas l'index composé : MongoDB n'en utilise en général qu'un seul par requête, puis filtre le reste en lisant les documents. Trois index simples coûtent trois mises à jour par écriture et ne servent pas la requête. L'index se conçoit **par requête**, pas par champ.
-
-**Ce qu'il faut retenir.** `explain` avant, `explain` après, et lire `docs / nReturned`. Égalités, puis tri, puis plages. Un index par requête fréquente, jamais un par champ.
-
-## Suivre les données et les index dans le temps
-
-Un index créé le premier jour peut être inutile le centième, et une collection qui a doublé change de comportement. Trois commandes pour le voir.
-
-**La taille d'une collection**, données et index :
-
-```
-db.produits.stats()
-```
-
-Les champs à lire : `count` (documents), `size` (octets des documents), `storageSize` (occupé sur disque, compressé), `nindexes`, `totalIndexSize`. Sur le lab, `storageSize` dépasse `size` parce que WiredTiger alloue par blocs ; sur une vraie collection, c'est l'inverse, par la compression.
-
-**L'usage réel de chaque index** depuis le dernier démarrage :
-
-```
-db.produits.aggregate([{ $indexStats: {} }])
-```
-
-Chaque index apparaît avec `accesses.ops`, le nombre de fois où il a servi une requête. Un index à zéro après un mois de production est un index qui coûte à chaque écriture sans rien rendre : à supprimer. C'est la commande qui fait le ménage.
-
-**Le comportement global du serveur**, en continu, depuis un terminal hors du shell :
-
-```
-docker compose exec mongodb mongostat --rowcount 5
-```
-
-Une ligne par seconde : insertions, requêtes, mises à jour, taille du cache utilisé, connexions. C'est ce qu'un outil de supervision collecte, sans la présentation.
-
-Nettoyer l'index de l'exercice avant de continuer :
-
-```
-db.produits.dropIndex("idx_category_active_price")
-```
-
-**Ce qu'il faut retenir.** `stats()` pour la taille, `$indexStats` pour l'usage, `mongostat` pour le rythme. Un index jamais utilisé se supprime.
-
-## Répliquer les données
-
-Le Jour 2 a expliqué le replica set ; le voici qui tourne. La démonstration est faite par le formateur ; la procédure est complète pour la rejouer seul, elle prend cinq minutes et ne touche pas au lab principal.
-
-### Étape 1 : trois serveurs, un replica set
-
-Le fichier `exercices/05-replica-set/compose.replica.yaml` décrit trois `mongod` identiques, lancés avec `--replSet rs0`. Depuis ce dossier :
-
-```
-cd exercices/05-replica-set
-```
-
-```
-docker compose -f compose.replica.yaml up -d
-```
-
-Ils tournent, mais ne se connaissent pas encore. L'initialisation se fait une fois, depuis n'importe lequel :
-
 ```
-docker compose -f compose.replica.yaml exec rs1 mongosh --quiet --eval 'rs.initiate({ _id: "rs0", members: [ { _id: 0, host: "rs1:27017" }, { _id: 1, host: "rs2:27017" }, { _id: 2, host: "rs3:27017" } ] })'
+db.messages.find(
+  { level: { $in: ["warn", "error"] } },
+  { _id: 0, source: 1, message: 1, received_at: 1 }
+).sort({ received_at: 1 })
 ```
 
-Attendre une dizaine de secondes : les trois se découvrent, et **votent**.
+**Résultat attendu** : trois messages — le timeout du service commande, le robot inconnu et le stock sous le seuil.
 
-```
-docker compose -f compose.replica.yaml exec rs1 mongosh --quiet --eval 'rs.status().members.forEach(m => print(m.name + " : " + m.stateStr))'
-```
-
-```
-rs1:27017 : SECONDARY
-rs2:27017 : SECONDARY
-rs3:27017 : PRIMARY
-```
-
-Le primaire n'est pas forcément `rs1` : l'élection choisit, et d'une exécution à l'autre le résultat change. C'est déjà une leçon : l'application ne doit pas connaître le nom du primaire.
-
-### Étape 2 : écrire sur le bon serveur
-
-**À observer.** Se connecter à `rs1` (un secondaire dans l'exemple ci-dessus) et tenter une écriture. Que se passe-t-il ?
-
-```
-docker compose -f compose.replica.yaml exec rs1 mongosh --quiet --eval 'db.getSiblingDB("formation_nosql").stock.insertOne({ product_id: "P101", quantite: 3 })'
-```
-
-```
-MongoServerError: not primary
-```
-
-Un secondaire refuse d'écrire. La bonne connexion nomme le **replica set**, pas un serveur : le pilote découvre alors le primaire tout seul, et le suivra s'il change.
-
-```
-docker compose -f compose.replica.yaml exec rs1 mongosh --quiet "mongodb://rs1:27017,rs2:27017,rs3:27017/formation_nosql?replicaSet=rs0" --eval 'print("connecté à " + db.hello().me); print(db.stock.insertOne({ product_id: "P101", quantite: 3 }, { writeConcern: { w: "majority" } }).acknowledged)'
-```
+### Compter les événements et les achats par client
 
-```
-connecté à rs3:27017
-true
-```
-
-Le shell a été lancé sur `rs1` et s'est connecté à `rs3` : la chaîne de connexion l'a routé vers le primaire. Et `w: "majority"` a attendu qu'au moins deux des trois serveurs aient l'écriture avant de répondre `true`.
-
-### Étape 3 : perdre le primaire
-
-Arrêter le serveur primaire (remplacer `rs3` par celui que votre `rs.status()` a désigné) :
-
-```
-docker compose -f compose.replica.yaml stop rs3
-```
-
-Attendre une quinzaine de secondes, le temps que les deux survivants constatent l'absence et votent. Puis, depuis un serveur encore vivant, avec la même chaîne de connexion :
+Cette agrégation facultative prolonge l’Atelier 4. Elle combine un regroupement, un comptage et une condition.
 
 ```
-docker compose -f compose.replica.yaml exec rs1 mongosh --quiet "mongodb://rs1:27017,rs2:27017,rs3:27017/formation_nosql?replicaSet=rs0" --eval 'rs.status().members.forEach(m => print(m.name + " : " + m.stateStr)); print(db.stock.insertOne({ product_id: "P103", quantite: 5 }, { writeConcern: { w: "majority" } }).acknowledged); print(db.stock.countDocuments())'
+db.evenements.aggregate([
+  {
+    $group: {
+      _id: "$client_id",
+      evenements: { $sum: 1 },
+      achats: {
+        $sum: {
+          $cond: [
+            { $eq: ["$event_type", "purchase_completed"] },
+            1,
+            0
+          ]
+        }
+      }
+    }
+  },
+  { $sort: { _id: 1 } }
+])
 ```
 
-```
-rs1:27017 : PRIMARY
-rs2:27017 : SECONDARY
-rs3:27017 : (not reachable/healthy)
-true
-2
-```
+**Résultat attendu** : quatre clients avec quatre événements chacun. `C117` et `C205` ont un achat ; `C042` et `C301` n’en ont aucun.
 
-Un nouveau primaire, une écriture acceptée avec la majorité (deux sur trois, le troisième étant mort), et les deux documents présents : celui écrit avant la panne a survécu, parce qu'il avait été confirmé par la majorité.
+### Aller plus loin avec un index composé
 
-### Étape 4 : le revenant
-
-```
-docker compose -f compose.replica.yaml start rs3
-```
+Cette manipulation facultative prolonge l’Atelier 5. Elle montre qu’un index peut servir le filtre sans fournir l’ordre demandé.
 
-Quelques secondes plus tard, `rs3` est de retour, **secondaire** : il rattrape l'oplog de `rs1` et rejoue l'écriture qu'il a manquée. Il ne redevient pas primaire : rien ne l'y oblige, et une élection pour rien coûterait une interruption.
+Créer d’abord l’index simple :
 
 ```
-rs1:27017 : PRIMARY
-rs2:27017 : SECONDARY
-rs3:27017 : SECONDARY
+db.evenements.createIndex({ client_id: 1 }, { name: "idx_client" })
 ```
 
-Démonter, en effaçant les données de la démonstration :
+Mesurer la recherche des événements de C042 triés du plus récent au plus ancien :
 
 ```
-docker compose -f compose.replica.yaml down --volumes
+db.evenements
+  .find({ client_id: "C042" })
+  .sort({ occurred_at: -1 })
+  .explain("executionStats")
 ```
-
-```
-cd ../..
-```
-
-**Ce qu'il faut retenir.** Trois serveurs, un primaire élu, une chaîne de connexion qui nomme le replica set. `w: "majority"` est ce qui fait survivre une écriture à la mort du primaire. La panne dure le temps d'une élection, et l'application ne voit qu'une erreur transitoire, si son pilote sait réessayer.
-
-## Partitionner les données
 
-Le partitionnement (*sharding*) ne se démontre pas sur un poste : il demande au minimum deux shards (chacun un replica set), trois serveurs de configuration et un routeur, soit une dizaine de processus. Ce qui compte se comprend sans le lancer, et tient en trois décisions.
+Le plan contient un `IXSCAN` pour le filtre, mais aussi une étape `SORT` pour remettre les résultats dans l’ordre.
 
-**La clé de partition.** C'est un champ (ou plusieurs) présent dans chaque document, et c'est elle qui décide sur quel shard il vit. Sur les événements du fil rouge, deux candidates :
+Créer ensuite un index qui porte à la fois l’égalité et le tri :
 
-| Clé | Ce que ça donne | Pour quel accès |
-|---|---|---|
-| `{ client_id: 1 }` (par plage) | Les événements d'un client sont sur un seul shard, triés | Lire le parcours d'un client : une seule machine |
-| `{ event_id: "hashed" }` | Chaque événement va sur un shard au hasard, uniformément | Écrire massivement sans point chaud ; lire un client interroge tous les shards |
-
-Il n'y a pas de bonne réponse absolue : la clé sert l'accès dominant et coûte sur les autres.
-
-**Le moment.** On partitionne quand un replica set ne suffit plus : jeu de travail qui ne tient plus dans le cache d'une machine, débit d'écriture qui sature un primaire. Pas avant. Un replica set bien dimensionné porte des téraoctets et des dizaines de milliers d'opérations par seconde.
-
-**La commande**, pour savoir à quoi elle ressemble :
-
 ```
-sh.shardCollection("formation_nosql.evenements", { client_id: 1 })
+db.evenements.createIndex(
+  { client_id: 1, occurred_at: -1 },
+  { name: "idx_client_date" }
+)
 ```
 
-Elle s'exécute sur le routeur `mongos`, une fois, et n'est pas réversible sans recréer la collection. Après elle, MongoDB découpe les données en morceaux (*chunks*) et un équilibreur les déplace entre shards pour garder la répartition uniforme, en tâche de fond.
+Rejouer exactement le même `explain`. L’étape `SORT` disparaît : les entrées de l’index sont déjà rangées par date décroissante à l’intérieur de chaque client.
 
-> [!IMPORTANT]
-> Ce que le partitionnement change pour le développeur : toute requête qui ne contient pas la clé de partition est envoyée à **tous** les shards. Une application conçue sur un replica set, où toute requête coûte le même prix, découvre après partitionnement que certaines de ses requêtes sont devenues des parcours de cluster. La clé se choisit en listant les requêtes, jamais en regardant le schéma.
+Ce choix suit le repère **ESR** : égalité, tri, intervalle. Ici, `client_id` porte l’égalité et `occurred_at` porte le tri.
 
-**Ce qu'il faut retenir.** Partitionner, c'est choisir une clé qu'on ne changera plus, pour un accès dominant, quand un replica set ne suffit plus. Le reste est mécanique.
-
-## En quoi consiste l'administration d'une base NoSQL au quotidien ?
-
-Quatre gestes reviennent chaque semaine, et un service managé les vend tous les quatre.
-
-**Sauvegarder.** `mongodump` exporte une base en fichiers BSON ; `mongorestore` les recharge. Sur le lab :
-
-```
-docker compose exec mongodb mongodump --db=formation_nosql --out=/tmp/dump
-```
+Pour consulter les compteurs d’utilisation des index :
 
 ```
-done dumping formation_nosql.commandes (2 documents)
-done dumping formation_nosql.evenements (16 documents)
-done dumping formation_nosql.produits (8 documents)
+db.evenements.aggregate([{ $indexStats: {} }])
 ```
-
-Sur un replica set en production, on sauvegarde depuis un secondaire pour ne pas charger le primaire, et on préfère un instantané de disque à `mongodump` au-delà de quelques dizaines de Go. Une sauvegarde qu'on n'a jamais restaurée n'est pas une sauvegarde : tester `mongorestore` fait partie du geste.
 
-**Sécuriser.** Le lab tourne **sans authentification**, sur `localhost` seulement. Ce n'est acceptable que là. La première action sur un vrai serveur : créer un administrateur, activer l'authentification, puis un utilisateur par application avec le rôle minimal (`readWrite` sur sa base, jamais `root`).
+Un `explain` n’incrémente pas ces compteurs. Pour observer une utilisation, exécuter réellement la requête :
 
 ```
-db.getUsers()
+db.evenements
+  .find({ client_id: "C042" })
+  .sort({ occurred_at: -1 })
+  .toArray()
 ```
-
-Sur le lab, la liste est vide. Sur un serveur exposé, une liste vide est une base ouverte à Internet, et les bases MongoDB effacées avec demande de rançon des années 2017 à 2020 étaient exactement cela.
-
-**Superviser.** Les métriques du Jour 1, en pratique : `mongostat` pour le rythme, `db.serverStatus()` pour l'état complet, `$indexStats` pour les index, le retard de réplication dans `rs.printSecondaryReplicationInfo()`. Et une alerte sur trois d'entre elles : le cache qui déborde, le retard de réplication qui monte, le nombre de `COLLSCAN` qui grimpe.
 
-**Mettre à jour.** Une version majeure par an ; sur un replica set, la mise à jour se fait **serveur par serveur**, secondaires d'abord, puis bascule volontaire (`rs.stepDown()`) et ancien primaire en dernier. Sans interruption pour l'application, si son pilote gère l'élection.
+Nettoyer les deux index ajoutés :
 
-**Ce qu'il faut retenir.** Sauvegarder et tester la restauration, ne jamais tourner sans authentification, alerter sur trois métriques, mettre à jour un nœud à la fois. Ce que le managé achète, c'est ces quatre lignes.
-
-## Ateliers guidés
-
-Cinq ateliers qui s'enchaînent sur la base du lab, du premier `find` à l'index mesuré. Chacun a son énoncé ici, et son corrigé en fin de Guide. Avant de commencer, l'état de référence :
-
 ```
-sh scripts/load-data.sh
+db.evenements.dropIndex("idx_client")
+db.evenements.dropIndex("idx_client_date")
 ```
-
-### Atelier 1 : premiers pas avec le shell de MongoDB
-
-Dans `mongosh`, sans rien créer, répondre à cinq questions par une commande chacune :
-
-1. Quelle version du serveur tourne ? (`db.version()`)
-2. Combien de collections la base contient-elle ? (`db.stats()`, champ `collections`)
-3. Combien de produits ? (`countDocuments`)
-4. Quelles catégories distinctes existent ? (`distinct`)
-5. Quel est le produit le plus cher ? (`find` avec `sort` et `limit`)
-
-**À observer** : `db.produits.find()` sans argument affiche combien de documents à la fois, et comment voir les suivants ?
-
-### Atelier 2 : création de bases et de collections
-
-1. Créer une base `boutique_test` et y insérer un document dans une collection `essai`, sans commande de création. Vérifier avec `show dbs` que la base existe maintenant, et qu'elle n'existait pas avant l'insertion.
-2. Créer explicitement une collection `stock` avec une validation : `product_id` chaîne obligatoire, `quantite` entier positif ou nul obligatoire (voir Jour 1, « Comment gérer l'intégrité »).
-3. Insérer un document valide, puis un invalide, et lire le message d'erreur.
-4. Supprimer la base `boutique_test`.
-
-**À observer** : que fait `show dbs` d'une base dont on a supprimé toutes les collections ?
-
-### Atelier 3 : intégration de données au format JSON
-
-Des messages produits par plusieurs applications de la boutique (paiement, stock, expédition, site web) ont été collectés dans `data/messages-applicatifs.jsonl`, un message par ligne, chacun avec les champs que son application a bien voulu mettre.
-
-1. Lire le fichier (`cat`), et relever ce que les messages ont en commun et ce qui varie.
-2. L'importer dans une collection `messages` avec `mongoimport` (sans `--jsonArray` : un document par ligne).
-3. Compter les messages par `source` et par `level` avec un pipeline `$group`.
-4. Lister les messages de niveau `warn` ou `error`, triés par date, en n'affichant que `source`, `message` et `received_at`.
-
-**À observer** : avant l'étape 3, prédire combien de groupes le `$group` va retourner.
-
-### Atelier 4 : requêtage sur ces données
-
-Sur `evenements`, chargée par `load-data.sh` :
-
-1. Les passages en caisse (`checkout_started`) avec le téléphone saisi, sans `_id`.
-2. Par client, le nombre d'événements et le nombre d'achats (`purchase_completed`). Indice : `$sum` avec `$cond`.
-3. Le dernier événement du client C042 : son type et sa date.
-4. Reprendre l'exercice 02 du dépôt (`exercices/02-requetes-et-mises-a-jour/README.md`) : réactiver P104 avec `$set` et `$inc` dans la même écriture, filtre sur l'état inactif, lecture des compteurs, puis relecture.
-
-**À observer** : à la question 4, que retournent `matchedCount` et `modifiedCount` si on relance la même commande une seconde fois ?
-
-### Atelier 5 : mise en place d'index et observation des requêtes
-
-1. Sur `evenements`, mesurer avec `explain("executionStats")` la requête `{ client_id: "C042" }` : étape, `totalDocsExamined`, `nReturned`.
-2. Créer l'index qui la sert, refaire la mesure, comparer.
-3. La requête devient « les événements de C042 triés par date décroissante » : l'index de l'étape 2 suffit-il ? Vérifier avec `explain` la présence ou non d'une étape `SORT`, puis proposer l'index composé qui la fait disparaître.
-4. Lire `$indexStats` sur `evenements`, puis supprimer les index créés pour laisser le lab propre.
-
-**À observer** : après l'étape 2, combien de documents sont examinés pour quatre retournés ?
-
-# Checklist finale
-
-À la fin des deux jours, chaque ligne devrait être cochable. Une ligne qui ne l'est pas indique la section à relire.
-
-- [ ] Expliquer en une phrase pourquoi le relationnel coince sur des données à forme variable, sans parler de volume
-- [ ] Nommer les quatre familles NoSQL et, pour chacune, l'accès pour lequel elle est faite
-- [ ] Dire où vit la structure d'une donnée dans Redis, dans MongoDB, dans Cassandra
-- [ ] Écrire une mise à jour de stock qui ne perd pas de vente entre deux clients simultanés
-- [ ] Distinguer réplication et partitionnement par leur but, et dire lequel se règle par requête
-- [ ] Expliquer pourquoi trois copies et pas deux
-- [ ] Lire un `explain` : nommer l'étape, et calculer le ratio documents examinés / documents retournés
-- [ ] Composer un index pour une requête avec égalités et tri, dans le bon ordre
-- [ ] Concevoir la clé de ligne HBase ou la clé de partition pour « les événements d'un client »
-- [ ] Dire ce qu'une transformation Spark fait, et ce qu'une action fait
-- [ ] Lister ce qu'un service managé prend en charge, et ce qu'il laisse à l'équipe
-- [ ] Remplir la matrice de choix pour une donnée nouvelle, avec une justification par case
-- [ ] Nommer les quatre gestes d'administration hebdomadaires d'une base MongoDB
-- [ ] Rejouer seul, avec ce Guide, les cinq ateliers MongoDB et la démonstration du replica set
 
 # Corrigés
 
-## Atelier : quatre formats de données face au relationnel
+## Atelier 0 : quatre formats de données face au relationnel
 
 ### Combien de colonnes pour le fichier IoT ?
 
-Onze, en réunissant tous les champs présents : `device_id`, `ts`, `temperature_c`, `humidity_pct`, `state`, `opened_by`, `lat`, `lon`, `speed_kmh`, `battery_pct`, `error`. Sur 7 lignes × 9 colonnes de mesure, 49 cellules seraient vides sur 63. Et le prochain capteur ajouté (un compteur d'ouverture, une caméra) obligerait à modifier la table.
+Dans l’hypothèse d’une table unique à colonnes fixes, réunir les onze champs : `device_id`, `ts`, `temperature_c`, `humidity_pct`, `state`, `opened_by`, `lat`, `lon`, `speed_kmh`, `battery_pct`, `error`. Les mesures absentes peuvent être représentées par des valeurs SQL `NULL`. Un document JSON constitue une autre représentation ; une nouvelle propriété n’impose alors pas une nouvelle colonne.
 
 ### Ce qui coince, fichier par fichier
 
-**`01-serveur-web.log`.** Le découpage en colonnes est possible (adresse, date, méthode, chemin, code, taille, référent, agent), mais l'agent utilisateur est un texte libre qu'aucun type ne décrit, et le chemin `/produits/P101` contient une clé étrangère cachée qu'il faudrait extraire à l'import pour la joindre à `produits`. Le vrai obstacle est l'usage : on ne lit jamais une ligne, on compte des millions de lignes par code de retour ou par heure. Une table relationnelle indexée pour cela coûte plus en index qu'en données. **Ce qui coince : le volume d'écriture et l'absence de lecture unitaire.**
+Le titre désigne les questions à examiner, pas une impossibilité du relationnel.
 
-**`02-capteur-iot.jsonl`.** Trois appareils, trois formes, et une quatrième pour le message d'erreur. Une table unique est aux deux tiers vide ; une table par type d'appareil oblige à connaître tous les types à l'avance et à en créer une à chaque nouveau capteur. Le type de `temperature_c` change même d'une ligne à l'autre (nombre puis `null`). **Ce qui coince : le schéma, qui varie par enregistrement et évolue avec la source.**
+| Fichier | Informations et préparation | Représentation possible | Opération attendue | Évolution et critères manquants |
+|---|---|---|---|---|
+| Journal web | Extraire date, chemin, statut et autres champs du texte | Table de requêtes, éventuellement texte brut conservé | Compter par statut ou retrouver une requête | Adapter l’extraction si le format change ; mesurer débit, rétention et temps de réponse |
+| Messages IoT | Identifier appareil, date et mesures ; distinguer champ absent et valeur nulle | Table large, tables par type, JSON dans PostgreSQL ou documents MongoDB | Filtrer les températures | Ajouter une colonne, un type de table ou une propriété selon le modèle ; préciser validation, charge et requêtes |
+| Page HTML | Extraire titre, prix, caractéristiques et avis ; repérer la référence de l’image | Tables ou documents pour les informations extraites ; fichier conservé séparément si nécessaire | Rechercher un produit ou un mot dans les avis | Adapter l’extraction à la structure de la page ; préciser qualité de recherche et fréquence des changements |
+| Clics CSV | Colonnes régulières ; interpréter le contenu variable de `extra` | Table d’événements avec champs typés et éventuellement JSON pour `extra` | Retrouver les sessions avec ajout sans achat | Faire évoluer les champs ou leur contenu ; préciser règles temporelles, index, rétention et charge |
 
-**`03-page-produit.html`.** Le prix, le titre et les caractéristiques sont extractibles, au prix d'un parseur HTML qui casse à chaque refonte de la page. Les avis sont du texte libre : on peut stocker la chaîne, pas la requêter (« les avis qui parlent d'autonomie » n'est pas une requête SQL). L'image est un fichier binaire. **Ce qui coince : la donnée non structurée, texte et image, que le relationnel ne peut que stocker sans l'interroger.**
+La recherche dans les avis est possible en relationnel : PostgreSQL propose la recherche plein texte. Le HTML doit être interprété pour isoler les informations souhaitées ; le stockage dans MongoDB ne réalise pas cette extraction automatiquement. [Recherche plein texte PostgreSQL](https://www.postgresql.org/docs/current/textsearch-intro.html).
 
-**`04-clics.csv`.** C'est le fichier qui rentre le mieux dans une table : colonnes fixes, types simples. Deux obstacles quand même. La colonne `extra` contient un contenu variable (`quantity=1`, `phone=…`, `quantity=1;coupon=…`) qui est en fait un sous-document déguisé en chaîne. Et la requête intéressante porte sur la **séquence** (« les sessions qui ont ajouté au panier sans acheter ») : en SQL, cela demande une auto-jointure de la table sur elle-même par `session_id`, coûteuse dès que le volume monte. **Ce qui coince : la colonne fourre-tout et les requêtes de séquence.**
+L’analyse des parcours est exprimable en SQL. Cet exercice ne démontre ni qu’une auto-jointure est obligatoire, ni qu’elle serait trop coûteuse.
 
 ### La question du volume
 
-Aucun des quatre fichiers ne dépasse 25 lignes. Les difficultés relevées existent déjà à cette taille ; le volume réel (des millions de lignes de log par jour, un message par seconde par capteur) ne les crée pas, il interdit de les contourner à la main.
+Les fichiers servent à observer la structure. Ils ne permettent pas de mesurer une saturation, le coût des index ou une limite de débit. Il faut des données et des requêtes représentatives, les mêmes garanties et un protocole de mesure pour comparer les performances.
+
+La forme des données, les opérations à effectuer, les garanties attendues et la charge orientent ensemble le choix d’une base. Aucun de ces critères, pris isolément, n’impose SQL ou NoSQL.
 
 ## Les bases de données clé-valeur : `GET panier:S0184`
 
-```
+```text
 (error) WRONGTYPE Operation against a key holding the wrong kind of value
 ```
 
 `panier:S0184` est une table de hachage, pas une chaîne. `GET` ne lit que des chaînes ; il faut `HGETALL`. Redis ne convertit pas et ne devine pas : chaque type a ses commandes, et se tromper est une erreur immédiate, pas un résultat vide.
 
-## Atelier : manipuler des données avec HBase
+## Démonstration : manipuler des données avec HBase
 
 **Étape 2.** Cinq cellules : quatre dans la famille `evt` (`type`, `session`, `product`, `channel`) et une dans `payload` (`phone`). Le script fait cinq `put` pour cette ligne.
 
 **Étape 4.** Trois lignes pour P103, toutes du client C042 : une consultation, un ajout au panier, un abandon. Le `scan` filtré a parcouru les seize lignes pour en garder trois ; sur une table réelle, ce parcours est le coût à éviter par une seconde table clé produit.
 
 ## Atelier : observer le format des données sur Cassandra, Redis et MongoDB
+
+> [!NOTE]
+> **Complément facultatif après la formation**
+> Cet atelier ne fait pas partie du parcours animé. Pendant la séance, suivre uniquement les ateliers indiqués dans la navigation d'ouverture.
 
 | | Redis | MongoDB | Cassandra |
 |---|---|---|---|
@@ -2264,6 +2873,10 @@ Aucun des quatre fichiers ne dépasse 25 lignes. Les difficultés relevées exis
 La ligne à retenir est la seconde : la même question a trois réponses, et elles disent tout de la famille. Redis ne cherche pas, MongoDB cherche et s'indexe, Cassandra ne cherche que par la clé et duplique pour le reste.
 
 ## Atelier : construire la matrice de synthèse
+
+> [!NOTE]
+> **Complément facultatif après la formation**
+> Cette activité ouverte n'est pas réalisée pendant la séance. La comparaison en cours porte sur le catalogue fourni et des questions guidées.
 
 ### Matrice remplie
 
@@ -2300,71 +2913,33 @@ Deux numéros normalisés (`06 00 00 00 01` devient `+33600000001`, `+33 6 00 00
 
 ## Atelier 1 : premiers pas avec le shell de MongoDB
 
-```
-db.version()
-```
+| Étape | Commande | Résultat attendu |
+|---|---|---|
+| Compter les produits | `db.produits.countDocuments()` | `8` |
+| Afficher les catégories | `db.produits.distinct("category")` | `appareil-photo`, `cafe`, `casque-audio`, `sac-a-dos` |
+| Afficher le produit le plus cher | `db.produits.find({}, { _id: 0, product_id: 1, name: 1, price: 1 }).sort({ price: -1 }).limit(1)` | `P101`, Horizon X100, `749` |
 
-```
-db.stats().collections
-```
-
-```
-db.produits.countDocuments()
-```
-
-```
-db.produits.distinct("category")
-```
-
-```
-db.produits.find({}, { _id: 0, product_id: 1, name: 1, price: 1 }).sort({ price: -1 }).limit(1)
-```
-
-Réponses sur le lab : `7.0.40` ; 2 collections après `load-data.sh` (4 si les collections `commandes` et `messages` des ateliers ont été importées) ; 8 produits ; quatre catégories (`appareil-photo`, `cafe`, `casque-audio`, `sac-a-dos`) ; le plus cher est P101, Horizon X100, à 749.
-
-**À observer** : `find()` affiche 20 documents par lot ; taper `it` affiche les 20 suivants. Sur le lab, aucune collection n'atteint 20, on ne le voit pas ; sur une vraie collection, c'est la première chose qui surprend.
+Dans le tri `{ price: -1 }`, `-1` signifie décroissant : le prix le plus élevé apparaît en premier. `limit(1)` ne conserve qu’un produit.
 
 ## Atelier 2 : création de bases et de collections
 
-Avant l'insertion, `show dbs` ne liste pas `boutique_test` ; après `db.essai.insertOne(...)`, elle apparaît. Une base n'existe que par les collections qu'elle contient. La validation :
+| Moment | Résultat attendu |
+|---|---|
+| Après `use boutique_test` | La base n’apparaît pas encore dans `show dbs` |
+| Après l’insertion dans `essai` | La base apparaît ; `show collections` affiche `essai` |
+| Après `db.dropDatabase()` | La base disparaît de `show dbs` |
 
-```
-db.createCollection("stock", { validator: { $jsonSchema: {
-  bsonType: "object",
-  required: ["product_id", "quantite"],
-  properties: {
-    product_id: { bsonType: "string" },
-    quantite:   { bsonType: "int", minimum: 0 }
-  }
-} } })
-```
-
-`db.stock.insertOne({ product_id: "P101", quantite: NumberInt(3) })` passe ; `db.stock.insertOne({ product_id: "P101", quantite: "beaucoup" })` est refusé avec `Document failed validation`. Puis `db.dropDatabase()` depuis `boutique_test`.
-
-**À observer** : une base dont on a supprimé la dernière collection disparaît de `show dbs`. Vérifié sur le lab : après `db.essai.drop()`, `boutique_test` n'est plus listée.
+Une base et une collection deviennent visibles lorsqu’elles contiennent leur première donnée.
 
 ## Atelier 3 : intégration de données au format JSON
 
-Commun à tous les messages : `source`, `received_at`, `level`, `message`. Variable : tout le reste (`order_id`, `product_id`, `amount`, `carrier`, `status`, `duration_ms`…), propre à l'application émettrice.
+| Vérification | Résultat attendu |
+|---|---|
+| Import | 7 documents importés, aucun échec |
+| `db.messages.countDocuments()` | `7` |
+| Champs communs | `source`, `received_at`, `level`, `message` |
 
-```
-docker compose exec -T mongodb mongoimport --db=formation_nosql --collection=messages --drop --file=/lab/data/messages-applicatifs.jsonl
-```
-
-```
-db.messages.aggregate([
-  { $group: { _id: { source: "$source", level: "$level" }, n: { $sum: 1 } } },
-  { $sort: { "_id.source": 1, "_id.level": 1 } }
-])
-```
-
-Six groupes : `expedition/info` 1, `paiement/info` 2, `stock/info` 1, `stock/warn` 1, `web/error` 1, `web/warn` 1.
-
-```
-db.messages.find({ level: { $in: ["warn", "error"] } }, { _id: 0, source: 1, message: 1, received_at: 1 }).sort({ received_at: 1 })
-```
-
-Trois messages : le timeout du service commande (`web`, `error`, 10:15:29), le robot inconnu (`web`, `warn`, 10:15:31), le stock sous le seuil (`stock`, `warn`, 10:31:04).
+Les champs `order_id`, `product_id`, `amount`, `carrier`, `status` ou `duration_ms` n’apparaissent que dans les messages concernés.
 
 ## Atelier 4 : requêtage sur ces données
 
@@ -2373,15 +2948,6 @@ db.evenements.find({ event_type: "checkout_started" }, { _id: 0, event_id: 1, "p
 ```
 
 Trois passages en caisse : E000187 (`06 00 00 00 01`), E000191 (`+33 6 00 00 00 02`), E000195 (`invalide`).
-
-```
-db.evenements.aggregate([
-  { $group: { _id: "$client_id", n: { $sum: 1 }, achats: { $sum: { $cond: [{ $eq: ["$event_type", "purchase_completed"] }, 1, 0] } } } },
-  { $sort: { _id: 1 } }
-])
-```
-
-Quatre clients, quatre événements chacun ; C117 et C205 ont acheté, C042 et C301 ont abandonné.
 
 ```
 db.evenements.find({ client_id: "C042" }, { _id: 0, occurred_at: 1, event_type: 1 }).sort({ occurred_at: -1 }).limit(1)
@@ -2393,7 +2959,7 @@ Le dernier événement de C042 est un `cart_abandoned` à 10:03:21.
 db.produits.updateOne({ product_id: "P104", active: false }, { $set: { active: true }, $inc: { price: -10 } })
 ```
 
-Première exécution : `matchedCount: 1, modifiedCount: 1`, et P104 passe à `active: true`, prix 149. **À observer** : la seconde exécution retourne `matchedCount: 0, modifiedCount: 0` : le filtre `active: false` ne trouve plus rien, donc le prix n'est pas décrémenté une seconde fois. C'est le filtre conditionnel du Jour 1 : il rend la commande sûre à rejouer.
+Première exécution : `matchedCount: 1, modifiedCount: 1`, et P104 passe à `active: true`, prix 149. **À observer** : la seconde exécution retourne `matchedCount: 0, modifiedCount: 0` : le filtre `active: false` ne trouve plus rien, donc le prix n'est pas décrémenté une seconde fois. C'est le filtre conditionnel du chapitre MongoDB : il rend la commande sûre à rejouer.
 
 ## Atelier 5 : mise en place d'index et observation des requêtes
 
@@ -2401,25 +2967,15 @@ Première exécution : `matchedCount: 1, modifiedCount: 1`, et P104 passe à `ac
 |---|---|---|---|---|
 | 1. Sans index | `COLLSCAN` | 16 | 0 | 4 |
 | 2. Index `{ client_id: 1 }` | `FETCH <- IXSCAN` | 4 | 4 | 4 |
-| 3. Même index, avec tri par date | `SORT <- FETCH <- IXSCAN` | 4 | 4 | 4 |
-| 3. Index `{ client_id: 1, occurred_at: -1 }` | `FETCH <- IXSCAN` | 4 | 4 | 4 |
 
 ```
 db.evenements.createIndex({ client_id: 1 }, { name: "idx_client" })
 ```
 
-```
-db.evenements.createIndex({ client_id: 1, occurred_at: -1 }, { name: "idx_client_date" })
-```
+Le résultat métier reste le même : quatre événements. L'index remplace le parcours des 16 documents par la lecture de 4 clés d'index et l'examen des 4 documents correspondants.
 
-**À observer** : après l'étape 2, quatre documents examinés pour quatre retournés, ratio 1 : l'index ne lit que ce qu'il rend. À l'étape 3, l'index simple sert le filtre mais laisse une étape `SORT` en mémoire ; l'index composé, égalité puis tri, la fait disparaître.
-
-Une nuance vue sur le lab : `$indexStats` affiche `ops: 0` sur les deux index même après ces mesures, parce qu'un `explain` **n'est pas comptabilisé** comme un accès. Seule une requête réellement exécutée (`find(...).toArray()`) incrémente le compteur. Un index à zéro juste après une série de `explain` n'est donc pas forcément inutile.
+Le but d'un index est d'accélérer les recherches qu'il sert. Le lab étant minuscule, le temps mesuré n'est pas significatif ; la diminution de `totalDocsExamined` montre plus clairement le travail évité.
 
 ```
 db.evenements.dropIndex("idx_client")
-```
-
-```
-db.evenements.dropIndex("idx_client_date")
 ```

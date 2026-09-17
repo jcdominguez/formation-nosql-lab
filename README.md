@@ -1,5 +1,13 @@
 # Lab MongoDB de la formation NoSQL
 
+## Supports de formation
+
+- [Guide participant en ligne](https://jcdominguez.github.io/formation-nosql-lab/GUIDE.html)
+- [Guide participant en Markdown](GUIDE.md)
+- [Quiz interactif en ligne](https://jcdominguez.github.io/formation-nosql-lab/quiz-nosql.html)
+
+Après téléchargement ou clonage du dépôt, ouvrir `GUIDE.html` et `quiz-nosql.html` dans un navigateur pour les utiliser hors connexion. Le deck PDF est distribué séparément.
+
 Ce dossier sert à valider localement le contenu MongoDB du cours. Il ne préjuge pas de l'environnement qui sera retenu pour les stagiaires.
 
 ## Périmètre actuel
