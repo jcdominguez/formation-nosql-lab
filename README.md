@@ -121,6 +121,23 @@ La solution supprime l'index de l'exercice à la fin afin de laisser le lab dans
 - Énoncé et corrigé : Guide participant, section « Répliquer les données »
 - Procédure : `exercices/05-replica-set/README.md`, fichier `compose.replica.yaml` indépendant du lab principal
 
+## Scénario migration - Séparer une table de 5 millions de lignes
+
+TP complémentaire, hors plan de cours : séparer une table PostgreSQL en chaud (récent) et froid (archive), le froid partant vers MongoDB. Démarche complète, énoncé et corrigé chiffré : `TP-MIGRATION-5M.md` / `TP-MIGRATION-5M.html`.
+
+Démarrer le service PostgreSQL dédié, sous son propre profil :
+
+```shell
+docker compose --profile migration up -d --wait postgres
+```
+
+Scripts, dans l'ordre du TP :
+
+- `scripts/migration/01-generer-factures.sql` : génère la table `factures` (nombre de lignes en paramètre `-v n=500000`)
+- `scripts/migration/02-mesurer.sh <avant|apres>` : sauvegarde, requête du quotidien, taille sur disque
+- `scripts/migration/03-exporter-froid.sh` : export du froid, import et indexation dans l'archive MongoDB
+- `scripts/migration/04-purger-froid.sh` : retrait du froid de PostgreSQL
+
 ## Autres fichiers ajoutés pour le Guide
 
 - `data/formats/` : quatre échantillons (log web, IoT, HTML, CSV) pour l'atelier « quatre formats face au relationnel »

@@ -37,6 +37,264 @@ services:
     ports:
       - "127.0.0.1:6379:6379"
 
+  # Base relationnelle « de production » du TP de séparation chaud / froid.
+  # Démarrer avec : docker compose --profile migration up -d --wait postgres
+  # Le montage /lab est en écriture : l'export JSONL du froid s'écrit dans data/generated/
+  # pour être lu ensuite par le service mongodb, qui monte le même dossier.
+  postgres:
+    profiles:
+      - migration
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: formation
+      POSTGRES_DB: facturation
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U postgres -d facturation
+      interval: 2s
+      timeout: 3s
+      retries: 15
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - .:/lab
+
+  # Noeud unique en replica set, pour les modules transactions et distribution.
+  # Démarrer avec : docker compose --profile rs up -d
+  mongodb-rs:
+    profiles:
+      - rs
+    image: mongodb/mongodb-community-server:7.0.40-ubuntu2204
+    entrypoint:
+      - mongod
+    command:
+      - --replSet
+      - rs0
+      - --bind_ip_all
+    healthcheck:
+      test:
+        - CMD
+        - mongosh
+        - --quiet
+        - --eval
+        - "db.adminCommand({ ping: 1 })"
+      interval: 2s
+      timeout: 5s
+      retries: 15
+      start_period: 5s
+    ports:
+      - "127.0.0.1:27018:27017"
+    volumes:
+      - mongodb-rs-data:/data/db
+      - .:/lab:ro
+
+  # Mini-cluster shardé (optionnel) : deux shards, un serveur de configuration, un routeur mongos.
+  # Ne pas démarrer à la main : utiliser scripts/init-sharding.sh, qui initialise les replica sets
+  # puis démarre mongos dans le bon ordre.
+  shard1:
+    profiles:
+      - cluster
+    image: mongodb/mongodb-community-server:7.0.40-ubuntu2204
+    entrypoint:
+      - mongod
+    command:
+      - --shardsvr
+      - --replSet
+      - shard1rs
+      - --port
+      - "27017"
+      - --bind_ip_all
+    healthcheck:
+      test:
+        - CMD
+        - mongosh
+        - --quiet
+        - --eval
+        - "db.adminCommand({ ping: 1 })"
+      interval: 2s
+      timeout: 5s
+      retries: 15
+      start_period: 5s
+    volumes:
+      - shard1-data:/data/db
+      - .:/lab:ro
+
+  shard2:
+    profiles:
+      - cluster
+    image: mongodb/mongodb-community-server:7.0.40-ubuntu2204
+    entrypoint:
+      - mongod
+    command:
+      - --shardsvr
+      - --replSet
+      - shard2rs
+      - --port
+      - "27017"
+      - --bind_ip_all
+    healthcheck:
+      test:
+        - CMD
+        - mongosh
+        - --quiet
+        - --eval
+        - "db.adminCommand({ ping: 1 })"
+      interval: 2s
+      timeout: 5s
+      retries: 15
+      start_period: 5s
+    volumes:
+      - shard2-data:/data/db
+      - .:/lab:ro
+
+  config1:
+    profiles:
+      - cluster
+    image: mongodb/mongodb-community-server:7.0.40-ubuntu2204
+    entrypoint:
+      - mongod
+    command:
+      - --configsvr
+      - --replSet
+      - cfgrs
+      - --port
+      - "27019"
+      - --bind_ip_all
+    healthcheck:
+      test:
+        - CMD
+        - mongosh
+        - --quiet
+        - --port
+        - "27019"
+        - --eval
+        - "db.adminCommand({ ping: 1 })"
+      interval: 2s
+      timeout: 5s
+      retries: 15
+      start_period: 5s
+    volumes:
+      - config1-data:/data/db
+      - .:/lab:ro
+
+  mongos:
+    profiles:
+      - cluster
+    image: mongodb/mongodb-community-server:7.0.40-ubuntu2204
+    entrypoint:
+      - mongos
+    command:
+      - --configdb
+      - cfgrs/config1:27019
+      - --port
+      - "27017"
+      - --bind_ip_all
+    depends_on:
+      config1:
+        condition: service_healthy
+      shard1:
+        condition: service_healthy
+      shard2:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - mongosh
+        - --quiet
+        - --eval
+        - "db.adminCommand({ ping: 1 })"
+      interval: 2s
+      timeout: 5s
+      retries: 15
+      start_period: 5s
+    ports:
+      - "127.0.0.1:27020:27017"
+    volumes:
+      - .:/lab:ro
+
+  # Serveur avec authentification activée, pour le module « Sécuriser ».
+  # Initialiser l'administrateur avec scripts/init-auth.sh avant de s'y connecter.
+  mongodb-auth:
+    profiles:
+      - auth
+    image: mongodb/mongodb-community-server:7.0.40-ubuntu2204
+    entrypoint:
+      - mongod
+    command:
+      - --auth
+      - --bind_ip_all
+    healthcheck:
+      test:
+        - CMD
+        - mongosh
+        - --quiet
+        - --eval
+        - "db.adminCommand({ ping: 1 })"
+      interval: 2s
+      timeout: 5s
+      retries: 15
+      start_period: 5s
+    ports:
+      - "127.0.0.1:27019:27017"
+    volumes:
+      - mongodb-auth-data:/data/db
+      - .:/lab:ro
+
+  # Serveur en TLS obligatoire, certificat auto-signé, pour le module « Sécuriser ».
+  mongodb-tls:
+    profiles:
+      - tls
+    build:
+      context: ./docker/tls
+    entrypoint:
+      - mongod
+    command:
+      - --tlsMode
+      - requireTLS
+      - --tlsCertificateKeyFile
+      - /etc/mongo-tls/mongo.pem
+      - --tlsCAFile
+      - /etc/mongo-tls/mongo.crt
+      - --tlsAllowConnectionsWithoutCertificates
+      - --bind_ip_all
+    healthcheck:
+      test:
+        - CMD
+        - mongosh
+        - --quiet
+        - --tls
+        - --tlsAllowInvalidCertificates
+        - --eval
+        - "db.adminCommand({ ping: 1 })"
+      interval: 2s
+      timeout: 5s
+      retries: 15
+      start_period: 5s
+    ports:
+      - "127.0.0.1:27021:27017"
+    volumes:
+      - mongodb-tls-data:/data/db
+      - .:/lab:ro
+
+  # Conteneur éphémère avec le pilote Python, pour le module « Écosystème ».
+  # Lancer : docker compose --profile driver run --rm driver
+  driver:
+    profiles:
+      - driver
+    build:
+      context: ./docker/driver
+    entrypoint:
+      - python3
+    command:
+      - /lab/demos/driver-demo.py
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    volumes:
+      - .:/lab:ro
+
   hbase:
     profiles:
       - bigdata
@@ -71,5 +329,12 @@ services:
       - .:/lab:ro
 
 volumes:
+  postgres-data:
   hbase-data:
   mongodb-data:
+  mongodb-rs-data:
+  shard1-data:
+  shard2-data:
+  config1-data:
+  mongodb-auth-data:
+  mongodb-tls-data:
