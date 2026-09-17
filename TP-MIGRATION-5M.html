@@ -37,7 +37,7 @@
 <details class="nav-sec" open><summary><a href="#remise-à-zéro">Remise à zéro</a></summary></details>
 </nav>
 <main class="content">
-  <header class="masthead"><p class="eyebrow">Complément hors plan</p><h1 class="title">Séparer une table de 5 millions de lignes</h1><p class="lede">Scénario de migration chaud/froid entre PostgreSQL et MongoDB : sauvegarde, performance et protocole de mesure sur un cas fictif.</p></header>
+  <header class="masthead"><p class="eyebrow">TP</p><h1 class="title">Séparer une table de 5 millions de lignes</h1><p class="lede">Scénario de migration chaud/froid entre PostgreSQL et MongoDB : sauvegarde, performance et protocole de mesure sur un cas fictif.</p></header>
   <aside class="callout note"><div class="callout-head"><span class="callout-kind">Synthèse</span><span class="callout-title">TP - Séparer une table de 5 millions de lignes</span></div><p>Scénario fictif : sortir une table volumineuse de PostgreSQL, en partie vers MongoDB, pour soulager la sauvegarde et gagner en performance sur les opérations du quotidien.</p>
 </aside>
 <aside class="callout note"><div class="callout-head"><span class="callout-kind">Information</span><span class="callout-title">Le 99ᵉ centile (p99)</span></div><p>Le temps que 99 % des requêtes ne dépassent pas. Sur 1000 requêtes triées de la plus rapide à la plus lente, c&#39;est le temps de la 990ᵉ, les 10 plus lentes étant ignorées. Une moyenne cache les cas rares mais réels : une base qui répond en 2 ms en moyenne mais en 800 ms une fois sur cent laisse un client sur cent attendre presque une seconde. C&#39;est le p99 qu&#39;on surveille en production, pas la moyenne.</p>
