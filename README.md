@@ -5,8 +5,10 @@
 - [Guide participant en ligne](https://jcdominguez.github.io/formation-nosql-lab/GUIDE.html)
 - [Guide participant en Markdown](GUIDE.md)
 - [Quiz interactif en ligne](https://jcdominguez.github.io/formation-nosql-lab/quiz-nosql.html)
+- [Cours MongoDB pas à pas en ligne](https://jcdominguez.github.io/formation-nosql-lab/COURS-MONGODB.html)
+- [Cours MongoDB pas à pas en Markdown](COURS-MONGODB.md)
 
-Après téléchargement ou clonage du dépôt, ouvrir `GUIDE.html` et `quiz-nosql.html` dans un navigateur pour les utiliser hors connexion. Le deck PDF est distribué séparément.
+Après téléchargement ou clonage du dépôt, ouvrir `GUIDE.html`, `quiz-nosql.html` et `COURS-MONGODB.html` dans un navigateur pour les utiliser hors connexion. Le deck PDF est distribué séparément.
 
 Ce dossier sert à valider localement le contenu MongoDB du cours. Il ne préjuge pas de l'environnement qui sera retenu pour les stagiaires.
 
@@ -121,9 +123,23 @@ La solution supprime l'index de l'exercice à la fin afin de laisser le lab dans
 - Énoncé et corrigé : Guide participant, section « Répliquer les données »
 - Procédure : `exercices/05-replica-set/README.md`, fichier `compose.replica.yaml` indépendant du lab principal
 
+## Cours MongoDB pas à pas
+
+Cours pour découvrir MongoDB depuis zéro, en 14 modules et 108 étapes, calqué sur la [roadmap MongoDB de roadmap.sh](https://roadmap.sh/mongodb). Chaque étape suit le même format : objectif, explication, commande à copier-coller, résultat attendu, complément.
+
+L'environnement : les premiers modules s'exécutent sur le serveur `mongodb` par défaut. Six services optionnels, chacun sous son propre profil Compose, servent aux modules sur les transactions, le partitionnement, la sécurité, TLS et les pilotes.
+
+- `scripts/init-rs.sh` : nœud replica set (transactions, réplication) ;
+- `scripts/init-sharding.sh` : mini-cluster à deux shards (partitionnement, le plus lourd, quatre conteneurs) ;
+- `scripts/init-auth.sh` : serveur avec authentification ;
+- `docker compose --profile tls up -d --build mongodb-tls` : serveur en TLS obligatoire, certificat auto-signé ;
+- `docker compose --profile driver run --rm driver` : pilote Python `pymongo` et chiffrement côté client.
+
+Les scripts d'initialisation sont idempotents. Les données des serveurs optionnels vivent dans des volumes séparés : elles ne sont pas concernées par `scripts/load-data.sh`.
+
 ## Scénario migration - Séparer une table de 5 millions de lignes
 
-TP complémentaire, hors plan de cours : séparer une table PostgreSQL en chaud (récent) et froid (archive), le froid partant vers MongoDB. Démarche complète, énoncé et corrigé chiffré : `TP-MIGRATION-5M.md` / `TP-MIGRATION-5M.html`.
+TP complémentaire, hors plan de cours : séparer une table PostgreSQL en chaud (récent) et froid (archive), le froid partant vers MongoDB. Démarche complète, énoncé et corrigé chiffré : [TP-MIGRATION-5M.md](TP-MIGRATION-5M.md) / [TP-MIGRATION-5M.html](https://jcdominguez.github.io/formation-nosql-lab/TP-MIGRATION-5M.html).
 
 Démarrer le service PostgreSQL dédié, sous son propre profil :
 
@@ -151,6 +167,12 @@ Arrêter le serveur en conservant les données :
 
 ```shell
 docker compose down
+```
+
+Cette commande arrête **tous** les services du projet, y compris les profils qui tournent. Pour n'arrêter qu'un service sans toucher aux autres :
+
+```shell
+docker compose stop nom_du_service
 ```
 
 Supprimer également le volume de données pour repartir de zéro :
