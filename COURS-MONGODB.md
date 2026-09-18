@@ -726,7 +726,7 @@ db.cours_produits.find().toArray()
 ]
 ```
 
-**Pour aller plus loin** : `db.cours_produits.findOne({ product_id: "P103" })` renvoie le seul document `Onde Pro`, sans crochets. Retenez la différence de nature : `find` rend un curseur (parcourable, paresseux), `findOne` rend un document. C'est aussi pourquoi `find` s'utilise dans le shell sans `.toArray()`, la console déroulant le curseur pour l'affichage.
+**Pour aller plus loin** : `db.cours_produits.findOne({ product_id: "P103" })` renvoie le seul document `Onde Pro`, sans crochets. Retenez la différence de nature : `find` rend un curseur (parcourable, paresseux), `findOne` rend un document. C'est aussi pourquoi `find` s'utilise dans le shell sans `.toArray()`, la console déroulant le curseur pour l'affichage. Dans un script ou une application, ce déroulé automatique n'existe pas : `find()` donne un curseur, qu'on parcourt document par document avec `hasNext()` et `next()` (détaillés à l'étape 13), ou qu'on matérialise d'un coup avec `.toArray()`. Ce dernier charge tous les documents en mémoire côté client : sur une grande collection, on le fait précéder d'un `.limit()`. Et les modificateurs `.sort()`, `.limit()`, `.skip()` se chaînent sur le curseur, donc avant `.toArray()`, jamais après.
 
 ## Étape 4 - Compter sans rapatrier les documents
 
