@@ -487,6 +487,26 @@ db.cours_types.drop(); db.cours_types.insertOne({ product_id: "T1", name: "Câbl
 
 **Pour aller plus loin** : la commande commence par `drop()`, qui supprime la collection si elle existe. Cela rend l'étape rejouable à l'identique : c'est une bonne habitude pour tout exercice d'écriture. `insertOne` insère **un** document ; la variante pour plusieurs est vue au module M3.
 
+**Piège classique : `true` n'est pas `1`**
+
+Dans le shell, vous verrez souvent `1` là où on attendrait `true` : `{ name: 1 }` dans une projection, `{ ping: 1 }` dans une commande. On en déduit vite que MongoDB traite les deux pareil. C'est vrai pour ces *options* de commande, c'est faux pour les *données*.
+
+Faites l'expérience. Le document `T1` a été inséré avec `active: true`. Cherchez-le avec un `1` :
+
+```javascript
+db.cours_types.find({ active: 1 }).toArray()
+```
+
+Résultat : `[]`. Rien. Recommencez avec `true` :
+
+```javascript
+db.cours_types.find({ active: true }).toArray()
+```
+
+Le document réapparaît. Pourquoi ? Parce que BSON distingue le **type** de la valeur : `true` est un booléen, `1` est un entier. Pour MongoDB, ce sont deux valeurs différentes, comme `"1"` (une chaîne) et `1` (un nombre) le seraient.
+
+La règle à retenir : dans un **filtre ou un document**, écrivez la valeur avec le type exact que vous avez stocké. Le raccourci `1 = true` n'existe que dans la syntaxe des projections et des options, où il signifie simplement « activé ». Le module M4 donne l'outil pour vérifier le type d'un champ (`$type`).
+
 ## Étape 2 - Entiers 32 bits, entiers 64 bits
 
 **Objectif** : savoir qu'un nombre entier n'a pas une seule taille en BSON.
@@ -1105,7 +1125,7 @@ db.produits.countDocuments({ price: { $type: "double" } })
 8
 ```
 
-**Pour aller plus loin** : `db.produits.countDocuments({ price: { $type: "int" } })` renvoie `0`, ce qui prouve que les prix sont bien des doubles. Les noms de type acceptés incluent `string`, `int`, `long`, `double`, `decimal`, `bool`, `date`, `object`, `array`, `null`, `objectId`. C'est le juge de paix quand l'affichage laisse planer un doute.
+**Pour aller plus loin** : `db.produits.countDocuments({ price: { $type: "int" } })` renvoie `0`, ce qui prouve que les prix sont bien des doubles. Les noms de type acceptés incluent `string`, `int`, `long`, `double`, `decimal`, `bool`, `date`, `object`, `array`, `null`, `objectId`. C'est le juge de paix quand l'affichage laisse planer un doute. C'est aussi l'outil qui règle le piège `true`/`1` du module M2 : `{ active: { $type: "bool" } }` ne retrouve que les booléens, `{ active: { $type: "int" } }` que les entiers. Si une collection mélange les deux (import mal typé, application qui a changé), c'est ainsi qu'on le découvre avant de corriger.
 
 ## Étape 8 - Motifs de texte : `$regex`
 
