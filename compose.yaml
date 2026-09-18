@@ -1,5 +1,11 @@
 services:
   mongodb:
+    # Image épinglée sur 7.0.40 : le tag latest (MongoDB 8) ne démarre pas avec
+    # le noyau Linux du Docker Desktop testé le 30 août 2026 (incompatibilité
+    # connue de tcmalloc avec les noyaux 6.19+). Le script d'entrée de l'image
+    # bloque aussi la 7 : mongod est donc lancé directement, avec --bind_ip_all,
+    # ce qui désactive l'initialisation de l'image (pas d'authentification,
+    # pas de /docker-entrypoint-initdb.d).
     image: mongodb/mongodb-community-server:7.0.40-ubuntu2204
     entrypoint:
       - mongod
